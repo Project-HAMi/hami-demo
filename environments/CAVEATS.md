@@ -43,9 +43,33 @@ Then delete pods that started before the fix so they get fresh veths. The host's
 
 Both register GPU resources on the same nodes. `hamidemo env setup a100 --remove-conflicts` uninstalls the `volcano-vgpu-device-plugin` Helm release before installing HAMi. Volcano's scheduler, admission and controllers stay installed. Workloads that request `volcano.sh/vgpu-*` (the old `vgpu-test/vllm-qwen3-8b` pod) can no longer schedule.
 
-## a100: enabling MIG needs a reboot on these VMs
+## a100: enabling MIG needs a reboot on these VMs (no GPU reset)
 
-`nvidia-smi -mig 1` leaves the mode as `Disabled` (current) / `Enabled` (pending). `nvidia-smi -r` returns `Not Supported` for both GPUs on these GCE VMs, so the only way to apply it is a reboot of the node. a100-1 is the control plane, so the API server is down while it reboots.
+Enabling MIG only takes effect after a GPU reset. Running `nvidia-smi -mig 1` on a100-1 left both GPUs at `Disabled` (current) with `Enabled` pending:
+
+```
+$ sudo nvidia-smi -mig 1
+$ nvidia-smi --query-gpu=index,mig.mode.current,mig.mode.pending --format=csv
+index, mig.mode.current, mig.mode.pending
+0, Disabled, Enabled
+1, Disabled, Enabled
+```
+
+A GPU reset is the normal way to apply the pending mode without a reboot. On these GCE VMs it is refused:
+
+```
+$ sudo nvidia-smi -r
+The following GPUs could not be reset:
+  GPU 00000000:00:04.0: Not Supported
+  GPU 00000000:00:05.0: Not Supported
+```
+
+The likely reason is that the GPUs are passed through to a VM and the guest is not allowed to reset them; this was not confirmed with Google. The only way found to apply the MIG mode is to reboot the node. Consequences:
+
+- a100-1 is the control plane, so the API server, scheduler and every pod on that node go down during the reboot.
+- Plan the MIG switch before the demo, not during it. Check `mig.mode.current` is `Enabled` before running `hamidemo run vllm-mig`.
+- Not tested: whether the reset works with all GPU processes stopped, and whether turning MIG off needs a reboot too. Assume it does.
+- The reboot also drops the SSH key on poff1; see the next section.
 
 ## a100: SSH key lost after rebooting poff1
 
