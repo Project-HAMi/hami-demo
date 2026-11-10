@@ -8,3 +8,7 @@ kind:
   extraMounts:
     - {hostPath: /dev/kfd, containerPath: /dev/kfd}
     - {hostPath: /dev/dri, containerPath: /dev/dri}
+  # Host default arp_ignore=2 breaks pod ARP to the gateway; see ../CAVEATS.md. Paths under /proc/sys, globs allowed.
+  node_sysctls:
+    net/ipv4/conf/default/arp_ignore: 0
+    net/ipv4/conf/veth*/arp_ignore: 0

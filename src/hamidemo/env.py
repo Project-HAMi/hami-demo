@@ -28,13 +28,17 @@ def ssh(spec: dict, host: str, *args: str, cmd: str = "") -> str:
 
 def kind_cluster(spec: dict) -> None:
     k = spec["kind"]
-    if k["name"] in sh("kind", "get", "clusters").split():
-        return
-    node = {"role": "control-plane", **({"extraMounts": k["extraMounts"]} if "extraMounts" in k else {})}
-    with tempfile.NamedTemporaryFile("w", suffix=".yaml") as f:
-        yaml.safe_dump({"kind": "Cluster", "apiVersion": "kind.x-k8s.io/v1alpha4", "name": k["name"], "nodes": [node]}, f)
-        f.flush()
-        sh("kind", "create", "cluster", "--config", f.name, "--wait", "120s")
+    if k["name"] not in sh("kind", "get", "clusters").split():
+        node = {"role": "control-plane", **({"extraMounts": k["extraMounts"]} if "extraMounts" in k else {})}
+        with tempfile.NamedTemporaryFile("w", suffix=".yaml") as f:
+            yaml.safe_dump({"kind": "Cluster", "apiVersion": "kind.x-k8s.io/v1alpha4", "name": k["name"], "nodes": [node]}, f)
+            f.flush()
+            sh("kind", "create", "cluster", "--config", f.name, "--wait", "120s")
+    # Hosts with arp_ignore=2 (see CAVEATS.md) break pod-to-gateway ARP inside the kind node.
+    if sysctls := k.get("node_sysctls"):
+        script = "; ".join(f"for f in /proc/sys/{path}; do echo {v} > $f; done" for path, v in sysctls.items())
+        sh("docker", "exec", f"{k['name']}-control-plane", "sh", "-c", script)
+        kubectl("delete", "pods", "-A", "--field-selector=status.phase!=Running", "--ignore-not-found", check=False)
 
 
 def patch_node(name: str, spec: dict) -> None:

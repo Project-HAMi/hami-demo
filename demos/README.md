@@ -9,6 +9,8 @@
 
 Every run writes `output/<demo>/<timestamp>/` with `run.log`, raw inference-perf reports, a TTFT / TPOT / E2E latency chart per QPS stage and allocation PNGs (before, per phase, after).
 
+Known problems per environment: [environments/CAVEATS.md](../environments/CAVEATS.md).
+
 Needs `uv`, `kubectl`, `helm`, `helmfile`, `ssh` and `~/.ssh/id_kubecon`.
 
 ```bash
