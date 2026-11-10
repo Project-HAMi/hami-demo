@@ -27,11 +27,17 @@ def kjson(*args: str) -> dict:
     return json.loads(kubectl("get", *args, "-o", "json"))
 
 
-def apply(path: Path, values: dict[str, str], delete: bool = False) -> None:
+def apply(text: str, namespace: str = "default", delete: bool = False) -> None:
+    """kubectl apply (or delete) manifests given as text."""
+    verb = ["delete", "--wait", "--ignore-not-found"] if delete else ["apply"]
+    kubectl("-n", namespace, *verb, "-f", "-", input=text)
+
+
+def render(path: Path, values: dict[str, str]) -> str:
     text = path.read_text()
     for k, v in values.items():
         text = text.replace("${" + k + "}", v)
-    kubectl("delete" if delete else "apply", "-f", "-", *(["--wait", "--ignore-not-found"] if delete else []), input=text)
+    return text
 
 
 def wait_until(check, timeout: int, every: int = 10, what: str = "condition"):

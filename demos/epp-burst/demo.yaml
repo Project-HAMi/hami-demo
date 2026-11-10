@@ -1,0 +1,19 @@
+title: llm-d EPP cache-aware routing under a shared-prefix QPS burst
+environment: a100
+namespace: llm-d-quickstart
+description: >
+  Same Qwen3-8B vLLM replicas, same inference-perf burst, two routes: through the llm-d EPP
+  (prefix-cache-affinity-filter + token-load-scorer) and straight to the Service (kube-proxy, random).
+  EPP keeps requests with the same system prompt on the replica that already holds its KV cache,
+  so prefill is skipped and TTFT should stay flat as QPS rises. Uses the existing llm-d quickstart
+  release in llm-d-quickstart.
+phases:
+  - name: EPP vs random
+    scale: {optimized-baseline-nvidia-gpu-vllm-decode: 2}
+    selector: llm-d.ai/guide=optimized-baseline
+    bench:
+      config: ../bench/shared-prefix-burst.yaml
+      timeout: 1800
+      targets:
+        - {name: epp, url: "http://quickstart-epp", model: Qwen/Qwen3-8B}
+        - {name: random, url: "http://decode-random:8000", model: Qwen/Qwen3-8B}

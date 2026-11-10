@@ -13,6 +13,7 @@ phases:
     manifest: vllm.yaml
     deployments: [vllm-remote-gpu]
     selector: app=vllm-remote-gpu
-    services:
-      - {name: vllm-remote-gpu, model: Qwen/Qwen3-8B}
-    bench: {concurrency: 4, prompts: 100}
+    bench:
+      config: ../bench/random-ramp.yaml
+      targets:
+        - {name: remote-tp2, url: "http://vllm-remote-gpu:8000", model: Qwen/Qwen3-8B}

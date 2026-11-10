@@ -9,7 +9,8 @@ phases:
     deployments: [vllm-mig-small, vllm-mig-large]
     selector: app=vllm-mig
     exec: [nvidia-smi -L]
-    services:
-      - {name: vllm-mig-small, model: Qwen/Qwen3-1.7B}
-      - {name: vllm-mig-large, model: Qwen/Qwen3-4B}
-    bench: {concurrency: 8, prompts: 200}
+    bench:
+      config: ../bench/random-ramp.yaml
+      targets:
+        - {name: mig-2g.10gb, url: "http://vllm-mig-small:8000", model: Qwen/Qwen3-1.7B}
+        - {name: mig-3g.20gb, url: "http://vllm-mig-large:8000", model: Qwen/Qwen3-4B}

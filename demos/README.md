@@ -5,8 +5,9 @@
 - `environments/helmfile.yaml.gotmpl`: one Helmfile for all environments (`helmfile -e <name>`). HAMi 2.11.0 is declared once; `common.yaml` holds shared values, `<name>/values.yaml.gotmpl` only what differs.
 - `environments/<name>/environment.yaml`: SSH access, kind cluster, node prep.
 - `demos/<name>/demo.yaml` plus manifests.
+- `demos/bench/*.yaml`: inference-perf load profiles shared by the demos.
 
-Every run writes `output/<demo>/<timestamp>/` with `run.log`, raw benchmarks and allocation PNGs (before, per phase, after).
+Every run writes `output/<demo>/<timestamp>/` with `run.log`, raw inference-perf reports, a TTFT / TPOT / E2E latency chart per QPS stage and allocation PNGs (before, per phase, after).
 
 Needs `uv`, `kubectl`, `helm`, `helmfile`, `ssh` and `~/.ssh/id_kubecon`.
 
@@ -18,6 +19,7 @@ uv run hamidemo env setup a100 --remove-conflicts      # once: replaces the Volc
 uv run hamidemo list
 uv run hamidemo run vllm-mig
 uv run hamidemo run remote-cuda                        # CLIENT_NODE=a100-2 to swap roles
+uv run hamidemo run epp-burst
 uv run hamidemo utilization-chart                      # current allocation, any HAMi cluster
 ```
 
@@ -31,10 +33,14 @@ uv run hamidemo utilization-chart                      # current allocation, any
 
 ## vllm-mig
 
-vLLM Qwen3-1.7B with `nvidia.com/gpumem: 10000` and Qwen3-4B with `20000`, both annotated `nvidia.com/vgpu-mode: mig`. HAMi picks the smallest allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB) and creates it when the pod starts. The run logs the `hami.io/vgpu-mig-allocations` reservation, `nvidia-smi -L` per pod, a completion per server and a concurrent `vllm bench serve`, then deletes the pods so HAMi reclaims the instances.
+vLLM Qwen3-1.7B with `nvidia.com/gpumem: 10000` and Qwen3-4B with `20000`, both annotated `nvidia.com/vgpu-mode: mig`. HAMi picks the smallest allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB) and creates it when the pod starts. The run logs the `hami.io/vgpu-mig-allocations` reservation, `nvidia-smi -L` per pod, a completion per server and an inference-perf ramp (1, 2, 4 QPS) against each server in turn, then deletes the pods so HAMi reclaims the instances.
 
 ## remote-cuda
 
-On `CLIENT_NODE`, with the GPUs on the Lupine server: a CUDA kernel checking `35 + 7 = 42` on both remote GPUs, then vLLM Qwen3-8B with tensor parallel 2 over them, a completion and a benchmark. A workload reserves the whole server, so the phases run in sequence.
+On `CLIENT_NODE`, with the GPUs on the Lupine server: a CUDA kernel checking `35 + 7 = 42` on both remote GPUs, then vLLM Qwen3-8B with tensor parallel 2 over them, a completion and the same inference-perf ramp. A workload reserves the whole server, so the phases run in sequence.
 
-Sources: [Dynamic MIG](https://project-hami.io/docs/userguide/nvidia-device/dynamic-mig-support), [Remote GPU](https://project-hami.io/docs/userguide/nvidia-device/remote-gpu), HAMi `examples/remotegpu` at v2.11.0.
+## epp-burst
+
+Uses the llm-d quickstart release already in `llm-d-quickstart` (EPP with `prefix-cache-affinity-filter` and `token-load-scorer`). Scales the Qwen3-8B TP=2 vLLM deployment to 2 replicas, then runs the same shared-prefix burst twice: through `quickstart-epp` and straight to the `decode-random` Service. The load is 24 system prompts of 6000 tokens, each reused by 30 users, at 1, 6 and 10 QPS. The run reports TTFT, TPOT and E2E latency (p50, p90) and output tokens/s per stage for both routes, and scales vLLM back to 0.
+
+Sources: [Dynamic MIG](https://project-hami.io/docs/userguide/nvidia-device/dynamic-mig-support), [Remote GPU](https://project-hami.io/docs/userguide/nvidia-device/remote-gpu), HAMi `examples/remotegpu` at v2.11.0, [inference-perf reports](https://github.com/kubernetes-sigs/inference-perf/blob/main/docs/reports.md).

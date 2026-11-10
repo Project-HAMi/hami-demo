@@ -1,0 +1,23 @@
+# Burst of shared-prefix traffic: 24 system prompts of 6000 tokens, each reused by 30 users,
+# 512-token questions, 128-token answers. Taken from the bench-shared-prefix epp-hot config on the A100 cluster,
+# with a 1 QPS warm-up stage added so the burst is compared against an idle baseline.
+load:
+  type: poisson
+  stages:
+    - {rate: 1, duration: 30}
+    - {rate: 6, duration: 30}
+    - {rate: 10, duration: 30}
+  request_timeout: 180.0
+api: {type: completion, streaming: true}
+server: {type: vllm, ignore_eos: true}
+data:
+  type: shared_prefix
+  shared_prefix:
+    num_unique_system_prompts: 24
+    num_users_per_system_prompt: 30
+    system_prompt_len: 6000
+    question_len: 512
+    output_len: 128
+    seed: 7
+report:
+  request_lifecycle: {summary: true, per_stage: true, per_request: false}
