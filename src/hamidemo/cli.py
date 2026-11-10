@@ -8,6 +8,7 @@ import typer
 
 from . import demo, utilization
 from . import env as envs
+from . import logs as follow_logs
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
 env = typer.Typer(no_args_is_help=True, help="Demo environments")
@@ -58,6 +59,12 @@ def list_demos() -> None:
 def run(name: str, keep: bool = typer.Option(False, help="Leave the workloads running")) -> None:
     """Deploy a demo, check it, benchmark it, draw the allocation and tear it down."""
     typer.echo(f"Results in {demo.Run(name)(keep)}")
+
+
+@app.command()
+def logs(name: str, tail: Annotated[int, typer.Option(help="Lines of history per container when it attaches")] = 20) -> None:
+    """Follow the logs of every workload the demo starts (run it in a second terminal next to `run`)."""
+    follow_logs.logs(name, tail)
 
 
 @app.command()

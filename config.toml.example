@@ -1,0 +1,36 @@
+# Site topology for hamidemo: where each environment lives and which node plays which role.
+# Copy to config.toml (git-ignored) and edit. environments/<name>/environment.yaml keeps the
+# reusable recipe (kind mounts, sysctls, conflicting plugins, node prep); this file only says
+# where to run it. HAMIDEMO_CONFIG=/path/to/other.toml selects a different topology.
+
+# SSH key for every host unless an environment sets its own ssh_key.
+ssh_key = "~/.ssh/id_kubecon"
+
+# Existing Kubernetes cluster with NVIDIA A100s (HAMi Flexible MIG + Lupine remote GPU).
+[environments.a100]
+control_plane = "gpu-node-1"   # host below that has kubectl / admin.conf
+local_api_port = 6443          # local SOCKS proxy port; unique per environment
+
+# Kubernetes node name -> SSH target. Name hosts after their node so roles resolve to hosts.
+[environments.a100.hosts]
+gpu-node-1 = "user@203.0.113.10"
+gpu-node-2 = "user@203.0.113.11"
+
+# Role -> Kubernetes node name. Exported to helmfile and substituted as ${ROLE} in demo manifests.
+[environments.a100.nodes]
+MIG_NODE = "gpu-node-1"            # GPUs in Flexible MIG mode (vllm-mig)
+REMOTE_SERVER_NODE = "gpu-node-2"  # Lupine remote GPU server (remote-cuda)
+CLIENT_NODE = "gpu-node-1"         # where remote-cuda workloads run
+
+# Single AMD Instinct host; hamidemo creates a kind cluster on it.
+[environments.amd]
+control_plane = "amd"
+local_api_port = 6444
+
+[environments.amd.hosts]
+amd = "root@203.0.113.20"
+
+[environments.amd.kind]
+name = "hami-amd"
+
+# mock (local kind with fake GPUs) needs no entry.

@@ -4,7 +4,7 @@ description: >
   Workloads run on CLIENT_NODE while their CUDA calls execute on the Lupine server's two A100s.
   A workload reserves the whole server, so the phases run one after the other.
 values:
-  CLIENT_NODE: a100-1
+  CLIENT_NODE: a100-1  # default; config.toml [environments.a100.nodes] CLIENT_NODE or $CLIENT_NODE override
 phases:
   - name: CUDA kernel
     manifest: cuda.yaml

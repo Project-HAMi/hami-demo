@@ -11,11 +11,12 @@ Every demo uses the same benchmark path ([inference-perf](https://github.com/kub
 
 ## Quick start
 
-Needs `uv`, `kubectl`, `helm`, `helmfile`, `ssh` and the shared SSH key `~/.ssh/id_kubecon`.
+Needs `uv`, `kubectl`, `helm`, `helmfile` and `ssh`.
 
 ```bash
+cp config.toml.example config.toml                 # once: your hosts, SSH key and node roles
 uv run hamidemo env list
-uv run hamidemo env connect a100                    # kubeconfig + SSH tunnel; prints the export
+uv run hamidemo env connect a100                    # kubeconfig + SOCKS proxy; prints the export
 export KUBECONFIG=$PWD/environments/a100/kubeconfig
 uv run hamidemo env setup a100 --remove-conflicts   # once: installs HAMi 2.11.0, replaces the Volcano vGPU plugin
 uv run hamidemo list
@@ -25,6 +26,21 @@ uv run hamidemo run epp-burst
 uv run hamidemo run vllm-amd-share                  # amd environment
 uv run hamidemo utilization-chart                   # current allocation on any HAMi cluster
 ```
+
+### Presenting
+
+Two terminals, same `KUBECONFIG`:
+
+```bash
+uv run hamidemo logs vllm-mig    # terminal 2: start first; follows every workload of the demo
+uv run hamidemo run vllm-mig     # terminal 1: drives the demo
+```
+
+`run` prints each `kubectl` / `helm` command before it runs, and before every apply the parts of the manifest that matter (annotations, scheduler, image, command, GPU resources) as highlighted YAML. Status polling stays quiet behind a spinner. `logs` runs `kubectl logs -f` per workload with a coloured pod-name prefix and picks up new pods as the demo moves through its phases; `--tail N` sets the history shown on attach.
+
+### Configuration
+
+`config.toml` (git-ignored; template [config.toml.example](config.toml.example)) holds the site topology: SSH key, hosts per environment, control plane, local proxy port, kind cluster name and node roles (`MIG_NODE`, `REMOTE_SERVER_NODE`, `CLIENT_NODE`). Roles are exported to helmfile and substituted as `${ROLE}` in demo manifests; an environment variable of the same name overrides them for one run. `environments/<name>/environment.yaml` stays the reusable recipe (kind mounts, sysctls, conflicting plugins, node preparation). `HAMIDEMO_CONFIG=/path/to/other.toml` selects another topology.
 
 ### Debug a remote cluster locally
 
@@ -52,10 +68,11 @@ Known problems and their fixes (ARP on the AMD host, MIG needing a reboot, Volca
 
 ## Layout
 
-- `src/hamidemo/`: the CLI (`env`, `run`, `list`, `utilization-chart`), inference-perf Job builder and report charts
+- `src/hamidemo/`: the CLI (`env`, `run`, `logs`, `list`, `utilization-chart`), inference-perf Job builder and report charts
+- `config.toml.example`: site topology template (copy to `config.toml`)
 - `environments/helmfile.yaml.gotmpl`: one Helmfile for all environments, `helmfile -e <name>`; HAMi version declared once
 - `environments/common.yaml`, `environments/<name>/values.yaml.gotmpl`: shared and per-environment values
-- `environments/<name>/environment.yaml`: SSH access, kind cluster, node preparation
+- `environments/<name>/environment.yaml`: reusable recipe (kind cluster, sysctls, conflicts, node preparation)
 - `demos/<name>/demo.yaml` plus manifests; `demos/bench/*.yaml`: shared load profiles
 
 Demo details: [demos/README.md](demos/README.md).

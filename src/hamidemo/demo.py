@@ -7,8 +7,9 @@ from pathlib import Path
 
 import yaml
 
+from . import env as envs
 from . import perf, utilization
-from .kube import ROOT, apply, kjson, kubectl, render, wait_until
+from .kube import ROOT, apply, console, kjson, kubectl, render, wait_until
 
 
 def load(name: str) -> tuple[Path, dict]:
@@ -20,18 +21,37 @@ def names() -> list[str]:
     return sorted(p.parent.name for p in (ROOT / "demos").glob("*/demo.yaml"))
 
 
+def selectors(spec: dict) -> list[str]:
+    """Label selectors for every workload a demo starts, in phase order, plus any extra `logs:` selectors.
+    perf-* Jobs label their pods job-name=perf-<target>."""
+    out = list(spec.get("logs", []))
+    for p in spec["phases"]:
+        if sel := p.get("selector"):
+            out.append(sel)
+        else:
+            out += [f"app={d}" for d in p.get("deployments", [])]
+        if pod := p.get("pod"):
+            out.append(f"app={pod}")
+        out += [f"job-name=perf-{t['name']}" for t in p.get("bench", {}).get("targets", [])]
+    return list(dict.fromkeys(out))
+
+
 class Run:
     def __init__(self, demo: str):
         self.dir, self.spec = load(demo)
         self.ns = self.spec.get("namespace", "default")
         self.out = ROOT / "output" / demo / datetime.now().strftime("%Y%m%d-%H%M%S")
         self.out.mkdir(parents=True)
-        self.values = {k: os.environ.get(k, str(v)) for k, v in self.spec.get("values", {}).items()}
+        # Demo values: environment variables win, then config.toml node roles, then demo.yaml defaults.
+        roles = envs.node_values(self.spec["environment"]) if self.spec.get("environment") != "mock" else {}
+        self.values = {k: os.environ.get(k, roles.get(k, str(v))) for k, v in self.spec.get("values", {}).items()}
         self.charts = 0
 
     def log(self, title: str, text: str = "") -> None:
         block = f"\n==> {title}\n{text.rstrip()}\n" if text else f"\n==> {title}\n"
-        print(block, end="")
+        console.print(f"\n==> {title}", style="bold magenta")
+        if text:
+            console.print(text.rstrip(), markup=False)
         with open(self.out / "run.log", "a") as f:
             f.write(block)
 

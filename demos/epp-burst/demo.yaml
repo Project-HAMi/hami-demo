@@ -7,6 +7,8 @@ description: >
   EPP keeps requests with the same system prompt on the replica that already holds its KV cache,
   so prefill is skipped and TTFT should stay flat as QPS rises. Uses the existing llm-d quickstart
   release in llm-d-quickstart.
+# Extra workloads for `hamidemo logs`: the EPP shows its routing decisions.
+logs: [llm-d-router-gateway=quickstart-epp]
 phases:
   - name: EPP vs random
     scale: {optimized-baseline-nvidia-gpu-vllm-decode: 2}

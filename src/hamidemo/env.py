@@ -1,9 +1,10 @@
-"""Environments: environment.yaml for access and node prep, environments/helmfile.yaml.gotmpl for releases."""
+"""Environments: environment.yaml is the reusable recipe, config.toml says where it runs, helmfile applies the releases."""
 
 import json
 import os
 import subprocess
 import tempfile
+import tomllib
 from pathlib import Path
 
 import yaml
@@ -13,8 +14,29 @@ from .kube import ROOT, kubectl, sh
 FORWARD_PORT = 6443
 
 
+def config() -> dict:
+    """Site topology from config.toml (or $HAMIDEMO_CONFIG); see config.toml.example."""
+    path = Path(os.environ.get("HAMIDEMO_CONFIG", ROOT / "config.toml"))
+    return tomllib.loads(path.read_text()) if path.exists() else {}
+
+
+def merge(base: dict, over: dict) -> dict:
+    return {**base, **{k: merge(base[k], v) if isinstance(v, dict) and isinstance(base.get(k), dict) else v for k, v in over.items()}}
+
+
 def load(name: str) -> dict:
-    return yaml.safe_load((ROOT / "environments" / name / "environment.yaml").read_text())
+    """Recipe from environments/<name>/environment.yaml, overlaid with [environments.<name>] from config.toml."""
+    recipe = yaml.safe_load((ROOT / "environments" / name / "environment.yaml").read_text())
+    cfg = config()
+    site = cfg.get("environments", {}).get(name, {})
+    if recipe.get("needs_config") and not site.get("hosts"):
+        raise SystemExit(f"environment {name} needs [environments.{name}] in config.toml; copy config.toml.example")
+    return merge({"ssh_key": cfg.get("ssh_key", "~/.ssh/id_rsa")}, merge(recipe, site))
+
+
+def node_values(name: str) -> dict[str, str]:
+    """Role -> node name; exported to helmfile and used as ${NAME} defaults in demo manifests."""
+    return {k: str(v) for k, v in load(name).get("nodes", {}).items()}
 
 
 def names() -> list[str]:
@@ -22,7 +44,7 @@ def names() -> list[str]:
 
 
 def ssh(spec: dict, host: str, *args: str, cmd: str = "") -> str:
-    key = os.path.expanduser(spec.get("ssh_key", "~/.ssh/id_kubecon"))
+    key = os.path.expanduser(spec["ssh_key"])
     return sh("ssh", "-i", key, "-o", "BatchMode=yes", *args, spec["hosts"][host], *([cmd] if cmd else []))
 
 
@@ -64,9 +86,10 @@ def setup(name: str, remove_conflicts: bool) -> None:
             if not remove_conflicts:
                 raise SystemExit(f"{ds} also serves nvidia.com/gpu; rerun with --remove-conflicts")
             sh("helm", "uninstall", release, "-n", ns, "--wait")
-    for host, cmd in spec.get("prepare", {}).items():
-        print(ssh(spec, host, cmd=cmd))
-    sh("helmfile", "-e", name, "apply", "--skip-diff-on-install", cwd=ROOT / "environments", env=spec.get("env", {}))
+    for role, cmd in spec.get("prepare", {}).items():
+        # Keys are node roles (MIG_NODE) resolved via [nodes], or host keys directly.
+        print(ssh(spec, spec.get("nodes", {}).get(role, role), cmd=cmd))
+    sh("helmfile", "-e", name, "apply", "--skip-diff-on-install", cwd=ROOT / "environments", env=node_values(name))
     patch_node(name, spec)
 
 
@@ -89,7 +112,7 @@ def kubeconfig(name: str, out: Path | None = None) -> Path:
 def proxy_args(name: str) -> list[str]:
     spec = load(name)
     port = spec.get("local_api_port", FORWARD_PORT)
-    key = os.path.expanduser(spec.get("ssh_key", "~/.ssh/id_kubecon"))
+    key = os.path.expanduser(spec["ssh_key"])
     return ["ssh", "-i", key, "-N", "-o", "ExitOnForwardFailure=yes", "-o", "ServerAliveInterval=30", "-D", f"127.0.0.1:{port}", spec["hosts"][spec["control_plane"]]]
 
 

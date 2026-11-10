@@ -4,5 +4,6 @@ output/
 __pycache__
 *.pyc
 environments/*/kubeconfig
+config.toml
 demos/*/output/
 output/

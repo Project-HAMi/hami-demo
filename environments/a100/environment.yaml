@@ -1,14 +1,9 @@
-title: A100 bare metal, 2 nodes x 2 A100-SXM4-40GB, existing Kubernetes 1.36
-ssh_key: ~/.ssh/id_kubecon
-control_plane: poff1
-hosts:
-  poff1: poff@34.64.252.7   # a100-1
-  poff2: poff@34.64.60.215  # a100-2
-env:
-  MIG_NODE: a100-1
-  REMOTE_SERVER_NODE: a100-2
+title: Kubernetes with NVIDIA A100s, HAMi Flexible MIG on one node, Lupine remote GPU server on another
+# Hosts, control plane and the MIG_NODE / REMOTE_SERVER_NODE / CLIENT_NODE roles come from config.toml.
+needs_config: true
 conflicts:
   kube-system/volcano-device-plugin: volcano-vgpu-device-plugin
 prepare:
-  # Flexible MIG needs MIG mode on; a pending change may need a reboot of the node.
-  poff1: "sudo nvidia-smi -mig 1 >/dev/null; nvidia-smi --query-gpu=index,mig.mode.current,mig.mode.pending --format=csv"
+  # Flexible MIG needs MIG mode on; a pending change may need a reboot of the node (see ../CAVEATS.md).
+  # Keyed by the role in config.toml [environments.a100.nodes] whose host gets the command.
+  MIG_NODE: "sudo nvidia-smi -mig 1 >/dev/null; nvidia-smi --query-gpu=index,mig.mode.current,mig.mode.pending --format=csv"

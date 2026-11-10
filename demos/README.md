@@ -11,7 +11,7 @@ Every run writes `output/<demo>/<timestamp>/` with `run.log`, raw inference-perf
 
 Known problems per environment: [environments/CAVEATS.md](../environments/CAVEATS.md).
 
-Needs `uv`, `kubectl`, `helm`, `helmfile`, `ssh` and `~/.ssh/id_kubecon`.
+Needs `uv`, `kubectl`, `helm`, `helmfile`, `ssh` and a `config.toml` (copy [config.toml.example](../config.toml.example)).
 
 ```bash
 uv run hamidemo env list
