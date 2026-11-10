@@ -4,7 +4,7 @@ from pathlib import Path
 
 import typer
 
-from . import demo, utilization
+from . import demo, env as envs, utilization
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
 env = typer.Typer(no_args_is_help=True, help="Demo environments")
@@ -13,26 +13,26 @@ app.add_typer(env, name="env")
 
 @env.command("list")
 def env_list() -> None:
-    for name in demo.names("environments"):
-        typer.echo(f"{name}: {demo.load('environments', name)[1]['title']}")
+    for name in envs.names():
+        typer.echo(f"{name}: {envs.load(name)['title']}")
 
 
 @env.command("connect")
 def env_connect(name: str) -> None:
-    """Fetch the kubeconfig over SSH and tunnel the API server to localhost:6443."""
-    typer.echo(f"export KUBECONFIG={demo.connect(name)}")
+    """Copy the kubeconfig over SSH and tunnel the API server to localhost."""
+    typer.echo(f"export KUBECONFIG={envs.connect(name)}")
 
 
 @env.command("setup")
 def env_setup(name: str, remove_conflicts: bool = typer.Option(False, help="Uninstall device plugins that clash with HAMi")) -> None:
-    """Install HAMi and its node configuration with Helmfile."""
-    demo.env_setup(name, remove_conflicts)
+    """Create the kind cluster if the environment has one, then apply the Helmfile releases."""
+    envs.setup(name, remove_conflicts)
 
 
 @app.command("list")
 def list_demos() -> None:
-    for name in demo.names("demos"):
-        spec = demo.load("demos", name)[1]
+    for name in demo.names():
+        spec = demo.load(name)[1]
         typer.echo(f"{name} [{spec['environment']}]: {spec['title']}")
 
 

@@ -1,0 +1,27 @@
+environments:
+  a100: {}
+  amd: {}
+  mock: {}
+---
+repositories:
+  - name: hami-charts
+    url: https://project-hami.github.io/HAMi/
+
+releases:
+  - name: hami
+    namespace: kube-system
+    chart: hami-charts/hami
+    version: 2.11.0
+    wait: true
+    timeout: 600
+    values:
+      - common.yaml
+      - {{ .Environment.Name }}/values.yaml.gotmpl
+
+  - name: amd-gpu
+    namespace: kube-system
+    chart: https://github.com/Project-HAMi/amd-device-plugin/releases/download/amd-gpu-helm-0.0.4/amd-gpu-0.0.4.tgz
+    installed: {{ eq .Environment.Name "amd" }}
+    wait: true
+    timeout: 1800
+    needs: [kube-system/hami]

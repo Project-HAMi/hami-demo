@@ -1,0 +1,9 @@
+title: local kind, mock device plugin with two fake A100-40GB (no GPU needed)
+kind:
+  name: hami-mock
+node_labels: {gpu: "on"}
+node_patch:
+  # The mock plugin registers memory and cores; HAMi still needs the card list and a gpu count.
+  capacity: {nvidia.com/gpu: "20"}
+  annotations:
+    hami.io/node-nvidia-register: fake-gpus.json

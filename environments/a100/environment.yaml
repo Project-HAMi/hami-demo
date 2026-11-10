@@ -7,7 +7,6 @@ hosts:
 env:
   MIG_NODE: a100-1
   REMOTE_SERVER_NODE: a100-2
-  HAMI_VERSION: 2.11.0
 conflicts:
   kube-system/volcano-device-plugin: volcano-vgpu-device-plugin
 prepare:

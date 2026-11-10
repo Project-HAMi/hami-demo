@@ -1,0 +1,7 @@
+# Shared by every environment.
+scheduler:
+  kubeScheduler:
+    image:
+      # Empty tag follows the cluster version; the chart default registry is a China mirror.
+      registry: registry.k8s.io
+      repository: kube-scheduler

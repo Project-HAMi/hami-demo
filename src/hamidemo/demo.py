@@ -1,8 +1,7 @@
-"""Environments and demos are described in YAML; this module runs them."""
+"""Demos are described in demos/<name>/demo.yaml; this module runs them."""
 
 import json
 import os
-import subprocess
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from pathlib import Path
@@ -10,23 +9,23 @@ from pathlib import Path
 import yaml
 
 from . import utilization
-from .kube import ROOT, apply, kjson, kubectl, sh, wait_until
+from .kube import ROOT, apply, kjson, kubectl, wait_until
 
 BENCH_IMAGE = "vllm/vllm-openai:v0.25.1-ubuntu2404"
 
 
-def load(kind: str, name: str) -> tuple[Path, dict]:
-    d = ROOT / kind / name
-    return d, yaml.safe_load((d / f"{kind[:-1]}.yaml").read_text())
+def load(name: str) -> tuple[Path, dict]:
+    d = ROOT / "demos" / name
+    return d, yaml.safe_load((d / "demo.yaml").read_text())
 
 
-def names(kind: str) -> list[str]:
-    return sorted(p.parent.name for p in (ROOT / kind).glob(f"*/{kind[:-1]}.yaml"))
+def names() -> list[str]:
+    return sorted(p.parent.name for p in (ROOT / "demos").glob("*/demo.yaml"))
 
 
 class Run:
     def __init__(self, demo: str):
-        self.dir, self.spec = load("demos", demo)
+        self.dir, self.spec = load(demo)
         self.out = ROOT / "output" / demo / datetime.now().strftime("%Y%m%d-%H%M%S")
         self.out.mkdir(parents=True)
         self.values = {k: os.environ.get(k, str(v)) for k, v in self.spec.get("values", {}).items()}
@@ -95,37 +94,3 @@ class Run:
         if not keep:
             self.snapshot("After")
         return self.out
-
-
-def env_setup(name: str, remove_conflicts: bool) -> None:
-    d, spec = load("environments", name)
-    for ds in spec.get("conflicts", []):
-        ns, ds_name = ds.split("/")
-        if kubectl("-n", ns, "get", "ds", ds_name, "--ignore-not-found", "-o", "name").strip():
-            if not remove_conflicts:
-                raise SystemExit(f"{ds} also serves nvidia.com/gpu; rerun with --remove-conflicts to uninstall its Helm release")
-            sh("helm", "uninstall", spec["conflicts"][ds], "-n", ns, "--wait")
-    for host, cmd in spec.get("prepare", {}).items():
-        print(ssh(spec, host, cmd))
-    sh("helmfile", "apply", "--skip-diff-on-install", cwd=d, env=spec.get("env", {}))
-
-
-def ssh(spec: dict, host: str, cmd: str) -> str:
-    key = os.path.expanduser(spec.get("ssh_key", "~/.ssh/id_kubecon"))
-    return sh("ssh", "-i", key, "-o", "BatchMode=yes", spec["hosts"][host], cmd)
-
-
-def connect(name: str) -> Path:
-    d, spec = load("environments", name)
-    kubeconfig = d / "kubeconfig"
-    raw = ssh(spec, spec["control_plane"], "kubectl config view --raw --minify")
-    cfg = yaml.safe_load(raw)
-    for c in cfg["clusters"]:
-        c["cluster"]["server"] = "https://127.0.0.1:6443"
-        c["cluster"]["tls-server-name"] = "kubernetes"
-    kubeconfig.write_text(yaml.safe_dump(cfg))
-    kubeconfig.chmod(0o600)
-    subprocess.run(["pkill", "-f", "-L 6443:127.0.0.1:6443"], check=False)
-    key = os.path.expanduser(spec.get("ssh_key", "~/.ssh/id_kubecon"))
-    sh("ssh", "-i", key, "-fNT", "-o", "ExitOnForwardFailure=yes", "-L", "6443:127.0.0.1:6443", spec["hosts"][spec["control_plane"]])
-    return kubeconfig

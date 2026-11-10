@@ -1,6 +1,12 @@
 # Demos
 
-`hamidemo` deploys environments, runs demos and draws per-GPU allocation from HAMi annotations. Environments live in `environments/<name>/environment.yaml` plus a Helmfile; demos in `demos/<name>/demo.yaml` plus manifests. Every run writes `output/<demo>/<timestamp>/` with `run.log`, raw benchmarks and allocation PNGs (before, per phase, after).
+`hamidemo` deploys environments, runs demos and draws per-GPU allocation from HAMi annotations.
+
+- `environments/helmfile.yaml.gotmpl`: one Helmfile for all environments (`helmfile -e <name>`). HAMi 2.11.0 is declared once; `common.yaml` holds shared values, `<name>/values.yaml.gotmpl` only what differs.
+- `environments/<name>/environment.yaml`: SSH access, kind cluster, node prep.
+- `demos/<name>/demo.yaml` plus manifests.
+
+Every run writes `output/<demo>/<timestamp>/` with `run.log`, raw benchmarks and allocation PNGs (before, per phase, after).
 
 Needs `uv`, `kubectl`, `helm`, `helmfile`, `ssh` and `~/.ssh/id_kubecon`.
 
@@ -19,6 +25,8 @@ uv run hamidemo utilization-chart                      # current allocation, any
 
 ## Environments
 
+- **mock**: local kind, mock device plugin with two fake A100-40GB. No GPU needed.
+- **amd**: kind on the MI300X host with `/dev/kfd` and `/dev/dri` mounted, HAMi plus amd-device-plugin 0.0.4. Run `hamidemo env setup amd` on that host, or `env connect amd` from your machine afterwards.
 - **a100**: existing Kubernetes 1.36 cluster, `a100-1` (poff1) and `a100-2` (poff2), 2 x A100-SXM4-40GB each. `a100-1` runs in Flexible MIG mode, `a100-2` as the Lupine remote GPU server.
 
 ## vllm-mig
