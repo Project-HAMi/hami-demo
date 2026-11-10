@@ -37,6 +37,10 @@ uv run hamidemo utilization-chart                      # current allocation, any
 
 vLLM Qwen3-1.7B with `nvidia.com/gpumem: 10000` and Qwen3-4B with `20000`, both annotated `nvidia.com/vgpu-mode: mig`. HAMi picks the smallest allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB) and creates it when the pod starts. The run logs the `hami.io/vgpu-mig-allocations` reservation, `nvidia-smi -L` per pod, a completion per server and an inference-perf ramp (1, 2, 4 QPS) against each server in turn, then deletes the pods so HAMi reclaims the instances.
 
+## vllm-amd-share
+
+Two upstream vLLM ROCm servers (`vllm/vllm-openai-rocm:v0.32.0`, no custom image) on the one MI300X in the `amd` environment: Qwen3-1.7B with `amd.com/gpumem: 24576` and `amd.com/gpucores: 25`, Qwen3-8B with `65536` and `50`. The run logs each pod's HIP/ROCR environment, a completion per server and the same inference-perf ramp. llama.cpp is only used by the workshop's laptop lab (Radeon 780M); the Instinct path uses standard vLLM images.
+
 ## remote-cuda
 
 On `CLIENT_NODE`, with the GPUs on the Lupine server: a CUDA kernel checking `35 + 7 = 42` on both remote GPUs, then vLLM Qwen3-8B with tensor parallel 2 over them, a completion and the same inference-perf ramp. A workload reserves the whole server, so the phases run in sequence.

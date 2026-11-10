@@ -1,0 +1,79 @@
+# Two upstream vLLM ROCm servers sharing one MI300X through HAMi slices.
+# Each gets amd.com/gpumem and amd.com/gpucores; amd-device-plugin enforces them inside the container.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-amd-small
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: vllm-amd, size: small}
+  template:
+    metadata:
+      labels: {app: vllm-amd, size: small}
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai-rocm:v0.32.0
+          command: [vllm, serve, Qwen/Qwen3-1.7B]
+          args: [--host=0.0.0.0, --port=8000, --max-model-len=4096, --gpu-memory-utilization=0.85]
+          ports: [{name: http, containerPort: 8000}]
+          securityContext:
+            seccompProfile: {type: Unconfined}
+            capabilities: {add: [SYS_PTRACE]}
+          startupProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, failureThreshold: 180}
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          resources:
+            limits:
+              amd.com/gpu: 1
+              amd.com/gpumem: 24576
+              amd.com/gpucores: 25
+          volumeMounts: [{name: shm, mountPath: /dev/shm}]
+      volumes: [{name: shm, emptyDir: {medium: Memory, sizeLimit: 8Gi}}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-amd-large
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: vllm-amd, size: large}
+  template:
+    metadata:
+      labels: {app: vllm-amd, size: large}
+    spec:
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai-rocm:v0.32.0
+          command: [vllm, serve, Qwen/Qwen3-8B]
+          args: [--host=0.0.0.0, --port=8000, --max-model-len=8192, --gpu-memory-utilization=0.85]
+          ports: [{name: http, containerPort: 8000}]
+          securityContext:
+            seccompProfile: {type: Unconfined}
+            capabilities: {add: [SYS_PTRACE]}
+          startupProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, failureThreshold: 180}
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          resources:
+            limits:
+              amd.com/gpu: 1
+              amd.com/gpumem: 65536
+              amd.com/gpucores: 50
+          volumeMounts: [{name: shm, mountPath: /dev/shm}]
+      volumes: [{name: shm, emptyDir: {medium: Memory, sizeLimit: 8Gi}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: vllm-amd-small}
+spec:
+  selector: {app: vllm-amd, size: small}
+  ports: [{port: 8000, targetPort: http}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: vllm-amd-large}
+spec:
+  selector: {app: vllm-amd, size: large}
+  ports: [{port: 8000, targetPort: http}]

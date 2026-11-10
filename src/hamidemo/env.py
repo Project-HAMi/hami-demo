@@ -80,12 +80,13 @@ def connect(name: str) -> Path:
     remote = cluster["server"].split("//")[1]
     if remote.startswith(("0.0.0.0", "127.0.0.1")):
         remote = remote.replace("0.0.0.0", "127.0.0.1")
-    cluster["server"] = f"https://127.0.0.1:{FORWARD_PORT}"
+    port = spec.get("local_api_port", FORWARD_PORT)
+    cluster["server"] = f"https://127.0.0.1:{port}"
     cluster["tls-server-name"] = "kubernetes"
     out = ROOT / "environments" / name / "kubeconfig"
     out.write_text(yaml.safe_dump(cfg))
     out.chmod(0o600)
-    forward = f"{FORWARD_PORT}:{remote}"
-    subprocess.run(["pkill", "-f", f"-L {FORWARD_PORT}:"], check=False)
+    forward = f"{port}:{remote}"
+    subprocess.run(["pkill", "-f", f"-L {port}:"], check=False)
     ssh(spec, cp, "-fNT", "-o", "ExitOnForwardFailure=yes", "-L", forward)
     return out

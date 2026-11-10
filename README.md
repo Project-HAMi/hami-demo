@@ -5,6 +5,7 @@ Reproducible HAMi demos on three environments, driven by one Python CLI, `hamide
 - **vllm-mig**: two vLLM servers on dynamically created MIG instances (HAMi Flexible MIG)
 - **remote-cuda**: CUDA and vLLM on GPUs from another node over HAMi Remote GPU (Lupine)
 - **epp-burst**: llm-d EPP cache-aware routing against random routing under a shared-prefix burst, measured as TTFT
+- **vllm-amd-share**: two standard vLLM ROCm servers sharing one AMD Instinct MI300X through HAMi slices
 
 Every demo uses the same benchmark path ([inference-perf](https://github.com/kubernetes-sigs/inference-perf)) and writes its raw reports, a TTFT / TPOT / latency chart per QPS stage and per-GPU allocation charts to `output/<demo>/<timestamp>/`.
 
@@ -21,6 +22,7 @@ uv run hamidemo list
 uv run hamidemo run vllm-mig
 uv run hamidemo run remote-cuda
 uv run hamidemo run epp-burst
+uv run hamidemo run vllm-amd-share                  # amd environment
 uv run hamidemo utilization-chart                   # current allocation on any HAMi cluster
 ```
 

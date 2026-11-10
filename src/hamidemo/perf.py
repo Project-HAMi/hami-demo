@@ -43,7 +43,7 @@ def run(name: str, config: dict, target: dict, namespace: str, timeout: int) -> 
     wait_until(done, timeout, every=15, what=f"job {name}")
     logs = kubectl("-n", namespace, "logs", f"job/{name}")
     apply(docs, namespace, delete=True)
-    reports = {m.group(1): json.loads(m.group(2)) for m in re.finditer(r"@@@ (\S+)\n(\{.*?\n\})\n", logs, re.S)}
+    reports = {m.group(1): json.loads(m.group(2)) for m in re.finditer(r"@@@ (\S+)\n(\{.*?\n\})\n", logs, re.DOTALL)}
     if not reports:
         raise SystemExit(f"{name}: no reports in the job log\n{logs[-2000:]}")
     return reports

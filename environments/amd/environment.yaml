@@ -1,6 +1,8 @@
 title: kind on the MI300X host, HAMi with amd-device-plugin 0.0.4
 ssh_key: ~/.ssh/id_kubecon
 control_plane: amd
+# Local end of the API tunnel; differs per environment so several can be connected at once.
+local_api_port: 6444
 hosts:
   amd: root@165.245.136.175
 kind:

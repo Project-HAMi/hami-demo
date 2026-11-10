@@ -9,8 +9,13 @@ import seaborn as sns
 
 from .kube import kjson
 
-NODE_REGISTER = "hami.io/node-nvidia-register"
-ALLOCATED = ("hami.io/vgpu-devices-allocated", "hami.io/remote-gpu-devices-allocated")
+# Per vendor: node register annotation and pod allocation annotation (HAMi v2.11.0 pkg/device/<vendor>).
+NODE_REGISTER = ("hami.io/node-nvidia-register", "hami.io/node-amd-register")
+ALLOCATED = (
+    "hami.io/vgpu-devices-allocated",
+    "hami.io/remote-gpu-devices-allocated",
+    "hami.io/amd-devices-allocated",
+)
 MIG_ALLOCATIONS = "hami.io/vgpu-mig-allocations"
 
 
@@ -33,7 +38,7 @@ class Gpu:
 
     @property
     def label(self) -> str:
-        return f"{self.node}\n{self.type.replace('NVIDIA-', '')} {self.uuid[4:12]}\n{self.mode}"
+        return f"{self.node}\n{self.type.replace('NVIDIA-', '')} {self.uuid.removeprefix('GPU-')[:8]}\n{self.mode}"
 
 
 def decode(value: str):
@@ -47,16 +52,18 @@ def decode(value: str):
 def collect() -> list[Gpu]:
     gpus: dict[str, Gpu] = {}
     for n in kjson("nodes")["items"]:
-        reg = n["metadata"].get("annotations", {}).get(NODE_REGISTER)
-        for d in json.loads(reg) if reg else []:
-            gpus[d["id"]] = Gpu(n["metadata"]["name"], d["id"], d.get("type", ""), d.get("devmem", 0), d.get("mode") or "hami-core")
+        ann = n["metadata"].get("annotations", {})
+        for key in NODE_REGISTER:
+            for d in json.loads(ann.get(key, "[]")):
+                mode = d.get("mode") or ("amd" if "amd" in key else "hami-core")
+                gpus[d["id"]] = Gpu(n["metadata"]["name"], d["id"], d.get("type", ""), d.get("devmem", 0), mode)
     for p in kjson("pods", "-A", "--field-selector=status.phase=Running")["items"]:
         ann, name = p["metadata"].get("annotations", {}), p["metadata"]["name"]
         mig = {a["gpuUUID"]: a["profile"] for a in json.loads(ann.get(MIG_ALLOCATIONS, "[]"))}
         for key in ALLOCATED:
             for uuid, mem, cores in decode(ann.get(key, "")):
                 if gpu := gpus.get(uuid):
-                    kind = "remote" if "remote" in key else f"mig {mig[uuid]}" if uuid in mig else "hami-core"
+                    kind = "remote" if "remote" in key else "amd" if "amd" in key else f"mig {mig[uuid]}" if uuid in mig else "hami-core"
                     gpu.slices.append(Slice(name, mem, cores, kind))
     return sorted(gpus.values(), key=lambda g: (g.node, g.uuid))
 

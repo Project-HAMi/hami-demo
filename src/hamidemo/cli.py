@@ -4,7 +4,8 @@ from pathlib import Path
 
 import typer
 
-from . import demo, env as envs, utilization
+from . import demo, utilization
+from . import env as envs
 
 app = typer.Typer(no_args_is_help=True, help=__doc__)
 env = typer.Typer(no_args_is_help=True, help="Demo environments")

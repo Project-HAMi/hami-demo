@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def sh(*cmd: str, input: str | None = None, check: bool = True, cwd: Path | None = None, env: dict | None = None) -> str:
     typer.secho("$ " + " ".join(cmd), dim=True)
-    r = subprocess.run(cmd, input=input, text=True, capture_output=True, cwd=cwd, env={**os.environ, **(env or {})})
+    r = subprocess.run(cmd, check=False, input=input, text=True, capture_output=True, cwd=cwd, env={**os.environ, **(env or {})})
     if check and r.returncode:
         raise typer.Exit(typer.secho(r.stderr.strip() or r.stdout.strip(), fg="red") or r.returncode)
     return r.stdout

@@ -1,0 +1,18 @@
+title: Two vLLM servers sharing one MI300X through HAMi slices
+environment: amd
+description: >
+  Upstream vLLM ROCm images, no custom build. Qwen3-1.7B gets 24 GiB and 25% of the compute units,
+  Qwen3-8B 64 GiB and 50%, on the same AMD Instinct MI300X. amd-device-plugin enforces both limits
+  inside the container.
+phases:
+  - name: vLLM on a shared MI300X
+    manifest: vllm.yaml
+    deployments: [vllm-amd-small, vllm-amd-large]
+    selector: app=vllm-amd
+    timeout: 3600
+    exec: [env]
+    bench:
+      config: ../bench/random-ramp.yaml
+      targets:
+        - {name: mi300x-25pct, url: "http://vllm-amd-small:8000", model: Qwen/Qwen3-1.7B}
+        - {name: mi300x-50pct, url: "http://vllm-amd-large:8000", model: Qwen/Qwen3-8B}
