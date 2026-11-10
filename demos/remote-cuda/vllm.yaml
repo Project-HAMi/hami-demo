@@ -1,0 +1,59 @@
+# vLLM Qwen3-8B with TP=2 on CLIENT_NODE; both GPUs are remote (based on HAMi examples/remotegpu).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-remote-gpu
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: vllm-remote-gpu}
+  template:
+    metadata:
+      labels: {app: vllm-remote-gpu}
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: ${CLIENT_NODE}
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.25.1-ubuntu2404
+          command: [vllm, serve, Qwen/Qwen3-8B]
+          args:
+            - --host=0.0.0.0
+            - --port=8000
+            - --dtype=float16
+            - --tensor-parallel-size=2
+            - --gpu-memory-utilization=0.8
+            - --max-model-len=4096
+            - --max-num-seqs=4
+            - --enforce-eager
+            - --attention-config.backend=TRITON_ATTN
+          env:
+            - {name: TORCH_BLAS_PREFER_CUBLASLT, value: "0"}
+            - {name: CUDA_LAUNCH_BLOCKING, value: "1"}
+          ports: [{name: http, containerPort: 8000}]
+          startupProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, failureThreshold: 90}
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          resources:
+            requests: {cpu: "4", memory: 16Gi}
+            limits:
+              memory: 32Gi
+              nvidia.com/remote-gpu: 2
+              nvidia.com/remote-gpu-memory: 20480
+          volumeMounts:
+            # HAMi fills this volume; PyTorch loads NCCL by absolute path.
+            - name: hami-lupine-client
+              mountPath: /usr/local/lib/python3.12/dist-packages/nvidia/nccl/lib/libnccl.so.2
+              subPath: libnccl.so.2
+              readOnly: true
+            - {name: shm, mountPath: /dev/shm}
+      volumes:
+        - {name: hami-lupine-client, emptyDir: {}}
+        - {name: shm, emptyDir: {medium: Memory, sizeLimit: 2Gi}}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: vllm-remote-gpu}
+spec:
+  selector: {app: vllm-remote-gpu}
+  ports: [{port: 8000, targetPort: http}]

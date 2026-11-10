@@ -1,0 +1,18 @@
+title: Remote CUDA with Lupine, GPUs on another node
+environment: a100
+description: >
+  Workloads run on CLIENT_NODE while their CUDA calls execute on the Lupine server's two A100s.
+  A workload reserves the whole server, so the phases run one after the other.
+values:
+  CLIENT_NODE: a100-1
+phases:
+  - name: CUDA kernel
+    manifest: cuda.yaml
+    pod: remote-cuda
+  - name: vLLM TP=2
+    manifest: vllm.yaml
+    deployments: [vllm-remote-gpu]
+    selector: app=vllm-remote-gpu
+    services:
+      - {name: vllm-remote-gpu, model: Qwen/Qwen3-8B}
+    bench: {concurrency: 4, prompts: 100}

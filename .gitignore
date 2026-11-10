@@ -3,3 +3,6 @@ visualization_output/
 output/
 __pycache__
 *.pyc
+environments/*/kubeconfig
+demos/*/output/
+output/

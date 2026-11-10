@@ -1,0 +1,13 @@
+[project]
+name = "hamidemo"
+version = "0.1.0"
+description = "Deploy HAMi demo environments, run the demos and draw GPU allocation"
+requires-python = ">=3.12"
+dependencies = ["typer>=0.26.8", "seaborn>=0.13.2", "pillow>=11.0.0", "pyyaml>=6"]
+
+[project.scripts]
+hamidemo = "hamidemo.cli:app"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

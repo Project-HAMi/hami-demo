@@ -1,0 +1,10 @@
+title: kind on the MI300X host, HAMi with amd-device-plugin 0.0.4
+ssh_key: ~/.ssh/id_kubecon
+control_plane: amd
+hosts:
+  amd: root@165.245.136.175
+kind:
+  name: hami-amd
+  extraMounts:
+    - {hostPath: /dev/kfd, containerPath: /dev/kfd}
+    - {hostPath: /dev/dri, containerPath: /dev/dri}
