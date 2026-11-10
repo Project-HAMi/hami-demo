@@ -17,7 +17,7 @@ Needs `uv`, `kubectl`, `helm`, `helmfile`, `ssh` and `~/.ssh/id_kubecon`.
 uv run hamidemo env list
 uv run hamidemo env connect a100                       # kubeconfig + SSH tunnel; prints the export
 export KUBECONFIG=$PWD/environments/a100/kubeconfig
-uv run hamidemo env setup a100 --remove-conflicts      # once: replaces the Volcano vGPU plugin with HAMi 2.11.0
+uv run hamidemo env setup a100 --remove-conflicts      # once: replaces the Volcano vGPU plugin with HAMi 2.11.0; enabling MIG needs a reboot of a100-1 (see CAVEATS)
 uv run hamidemo list
 uv run hamidemo run vllm-mig
 uv run hamidemo run remote-cuda                        # CLIENT_NODE=a100-2 to swap roles
