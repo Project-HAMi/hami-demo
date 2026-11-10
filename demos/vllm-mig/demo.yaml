@@ -1,7 +1,7 @@
 title: vLLM on Flexible MIG, slices created per pod and reclaimed after
 environment: a100
 description: >
-  Two vLLM servers ask for 10000 and 20000 MiB with nvidia.com/vgpu-mode=mig. HAMi creates the smallest
+  Two vLLM servers ask for 9000 and 20000 MiB with nvidia.com/vgpu-mode=mig. HAMi creates the smallest
   allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB) and removes it when the pod ends.
 phases:
   - name: vLLM on MIG

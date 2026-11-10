@@ -1,5 +1,5 @@
 # Two vLLM servers on Flexible MIG slices of one A100-SXM4-40GB.
-# HAMi creates the smallest allowlisted profile that fits gpumem: 10000 -> 2g.10gb, 20000 -> 3g.20gb.
+# HAMi creates the smallest allowlisted profile that fits gpumem: 9000 -> 2g.10gb (reports 9984 MiB, so 10000 would not fit), 20000 -> 3g.20gb.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -26,7 +26,7 @@ spec:
           resources:
             limits:
               nvidia.com/gpu: 1
-              nvidia.com/gpumem: 10000
+              nvidia.com/gpumem: 9000
           volumeMounts: [{name: shm, mountPath: /dev/shm}]
       volumes: [{name: shm, emptyDir: {medium: Memory, sizeLimit: 2Gi}}]
 ---

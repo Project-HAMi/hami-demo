@@ -35,7 +35,7 @@ uv run hamidemo utilization-chart                      # current allocation, any
 
 ## vllm-mig
 
-vLLM Qwen3-1.7B with `nvidia.com/gpumem: 10000` and Qwen3-4B with `20000`, both annotated `nvidia.com/vgpu-mode: mig`. HAMi picks the smallest allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB) and creates it when the pod starts. The run logs the `hami.io/vgpu-mig-allocations` reservation, `nvidia-smi -L` per pod, a completion per server and an inference-perf ramp (1, 2, 4 QPS) against each server in turn, then deletes the pods so HAMi reclaims the instances.
+vLLM Qwen3-1.7B with `nvidia.com/gpumem: 9000` and Qwen3-4B with `20000`, both annotated `nvidia.com/vgpu-mode: mig`. HAMi picks the smallest allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB) and creates it when the pod starts. The run logs the `hami.io/vgpu-mig-allocations` reservation, `nvidia-smi -L` per pod, a completion per server and an inference-perf ramp (1, 2, 4 QPS) against each server in turn, then deletes the pods so HAMi reclaims the instances.
 
 ```text
  a100-1, one A100-SXM4-40GB in MIG mode (7 compute slices, 40 GB)
@@ -43,7 +43,7 @@ vLLM Qwen3-1.7B with `nvidia.com/gpumem: 10000` and Qwen3-4B with `20000`, both 
  pod request                   HAMi creates      GPU layout
  +-----------------------+
  | vllm-mig-small        | --> 2g.10gb -----+
- | gpumem 10000, mig     |                  |    +---------+-----------+---------+
+ | gpumem 9000, mig      |                  |    +---------+-----------+---------+
  +-----------------------+                  +--> | 2g.10gb |  3g.20gb  | 2 free  |
  | vllm-mig-large        | --> 3g.20gb -----+    +---------+-----------+---------+
  | gpumem 20000, mig     |
