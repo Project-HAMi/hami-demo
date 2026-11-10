@@ -17,6 +17,7 @@ spec:
         hami.io/node-scheduler-policy: binpack
         hami.io/gpu-scheduler-policy: binpack
     spec:
+      enableServiceLinks: false  # no VLLM_*_PORT env vars from Services named vllm-*; vLLM warns about each
       nodeSelector: {kubernetes.io/hostname: "${MIG_NODE}"}
       containers:
         - name: vllm

@@ -13,6 +13,7 @@ spec:
     metadata:
       labels: {app: vllm-amd, size: small}
     spec:
+      enableServiceLinks: false  # no VLLM_*_PORT env vars from Services named vllm-*; vLLM warns about each
       containers:
         - name: vllm
           image: vllm/vllm-openai-rocm:v0.32.0

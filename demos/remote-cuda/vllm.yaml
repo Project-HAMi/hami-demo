@@ -12,6 +12,7 @@ spec:
     metadata:
       labels: {app: vllm-remote-gpu}
     spec:
+      enableServiceLinks: false  # no VLLM_*_PORT env vars from Services named vllm-*; vLLM warns about each
       nodeSelector:
         kubernetes.io/hostname: ${CLIENT_NODE}
       containers:
