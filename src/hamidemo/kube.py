@@ -22,7 +22,7 @@ POD_FIELDS = ("schedulerName", "nodeSelector", "nodeName")
 
 
 def show_cmd(cmd: tuple[str, ...] | list[str]) -> None:
-    console.print(Text("$ ", style="bold green") + Text(shlex.join(cmd), style="bold cyan"))
+    console.print(Text.assemble(("$ ", "bold green"), (shlex.join(cmd), "bold cyan")))
 
 
 def sh(*cmd: str, input: str | None = None, check: bool = True, cwd: Path | None = None, env: dict | None = None, quiet: bool = False) -> str:

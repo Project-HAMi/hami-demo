@@ -28,7 +28,7 @@ def follow(selector: str, ns: str, colour: str, tail: int) -> None:
             # kubectl --prefix gives "[pod/<name>/<container>] "; keep just the pod name.
             m = re.match(r"\[pod/([^/\]]+)/[^\]]*\] ?", line)
             who, line = (m[1], line[m.end():]) if m else (selector, line)
-            console.print(Text(f"{who} ", style=f"bold {colour}") + Text(line.rstrip()))
+            console.print(Text.assemble((f"{who} ", f"bold {colour}"), line.rstrip()))
         p.wait()
         time.sleep(3)
 
