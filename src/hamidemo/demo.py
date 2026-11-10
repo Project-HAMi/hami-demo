@@ -37,8 +37,9 @@ def selectors(spec: dict) -> list[str]:
 
 
 class Run:
-    def __init__(self, demo: str):
+    def __init__(self, demo: str, benchmark: bool = True, live: bool = True):
         self.dir, self.spec = load(demo)
+        self.benchmark, self.live = benchmark, live
         self.ns = self.spec.get("namespace", "default")
         self.out = ROOT / "output" / demo / datetime.now().strftime("%Y%m%d-%H%M%S")
         self.out.mkdir(parents=True)
@@ -85,14 +86,26 @@ class Run:
     def phase(self, p: dict, keep: bool) -> None:
         self.log(p["name"])
         manifest = render(self.dir / p["manifest"], self.values) if "manifest" in p else None
-        if manifest:
-            apply(manifest, self.ns)
-        for d, n in p.get("scale", {}).items():
-            self.k("scale", f"deploy/{d}", f"--replicas={n}")
-        for d in [*p.get("deployments", []), *p.get("scale", {})]:
-            self.k("rollout", "status", f"deploy/{d}", f"--timeout={p.get('timeout', 1800)}s")
-        if pod := p.get("pod"):
-            wait_until(lambda: kjson("-n", self.ns, "pod", pod)["status"]["phase"] in ("Succeeded", "Failed"), p.get("timeout", 600), what=pod)
+        # Stream events and container logs from before the apply, so scheduling and pulls show up right away.
+        sels = selectors({"phases": [{**p, "bench": {}}]})
+        stream = None
+        if self.live and sels:
+            from .logs import Stream  # logs imports demo
+
+            stream = Stream(sels, self.ns, tail=5)
+        try:
+            if manifest:
+                apply(manifest, self.ns)
+            for d, n in p.get("scale", {}).items():
+                self.k("scale", f"deploy/{d}", f"--replicas={n}")
+            for d in [*p.get("deployments", []), *p.get("scale", {})]:
+                self.k("rollout", "status", f"deploy/{d}", f"--timeout={p.get('timeout', 1800)}s")
+            if pod := p.get("pod"):
+                wait_until(lambda: kjson("-n", self.ns, "pod", pod)["status"]["phase"] in ("Succeeded", "Failed"), p.get("timeout", 600), what=pod)
+        finally:
+            if stream:
+                stream.stop()
+        if (pod := p.get("pod")) and not stream:
             self.log(f"{pod} logs", self.k("logs", pod))
         if sel := p.get("selector"):
             self.log("Pods", self.k("get", "pods", "-l", sel, "-o", "wide"))
@@ -104,7 +117,7 @@ class Run:
         self.snapshot(p["name"])
         for t in p.get("bench", {}).get("targets", []):
             self.log(f"Completion via {t['name']}", self.completion(t["url"], t["model"]))
-        if b := p.get("bench"):
+        if (b := p.get("bench")) and self.benchmark:
             self.bench(b, p["name"])
         if not keep:
             if manifest:
@@ -114,7 +127,8 @@ class Run:
 
     def __call__(self, keep: bool) -> Path:
         self.log(self.spec["title"], self.spec.get("description", ""))
-        self.snapshot("Before")
+        if self.benchmark:
+            self.snapshot("Before")
         for p in self.spec["phases"]:
             self.phase(p, keep)
         if not keep:

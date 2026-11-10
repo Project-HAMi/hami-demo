@@ -68,10 +68,16 @@ def target(name: str, kubeconfig: Path | None) -> None:
 
 
 @app.command()
-def run(name: str, keep: bool = typer.Option(False, help="Leave the workloads running"), kubeconfig: KubeconfigOpt = None) -> None:
+def run(
+    name: str,
+    keep: bool = typer.Option(False, help="Leave the workloads running"),
+    bench: bool = typer.Option(True, help="Run inference-perf; --no-bench just deploys, checks one completion and shows the allocation"),
+    live: bool = typer.Option(True, help="Stream pod events and logs while waiting; --no-live when `hamidemo logs` runs alongside"),
+    kubeconfig: KubeconfigOpt = None,
+) -> None:
     """Deploy a demo, check it, benchmark it, draw the allocation and tear it down."""
     target(name, kubeconfig)
-    typer.echo(f"Results in {demo.Run(name)(keep)}")
+    typer.echo(f"Results in {demo.Run(name, bench, live)(keep)}")
 
 
 @app.command()
