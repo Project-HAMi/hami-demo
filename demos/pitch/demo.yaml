@@ -1,4 +1,4 @@
-title: HAMi in 3 minutes, Flexible MIG and remote CUDA on one cluster
+title: HAMi in 20 minutes, Flexible MIG and remote CUDA on one cluster
 environment: a100
 description: >
   MIG_NODE: two vLLM servers binpacked onto one A100, the 10 GB one first (2g.10gb), then the 20 GB one (3g.20gb).

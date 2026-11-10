@@ -35,7 +35,7 @@ uv run hamidemo utilization-chart                      # current allocation, any
 
 ## pitch
 
-The 3 minute version: `vllm-mig` and the CUDA part of `remote-cuda` in one run, no benchmark.
+The 20 minute walkthrough: `vllm-mig` and the CUDA part of `remote-cuda` in one run, no benchmark.
 
 ```text
  a100-1 (MIG_NODE, CLIENT_NODE)                      a100-2 (REMOTE_SERVER_NODE, no MIG)
@@ -47,7 +47,7 @@ The 3 minute version: `vllm-mig` and the CUDA part of `remote-cuda` in one run, 
  +-----------------------------------------+         +---------------------------+
 ```
 
-The remote-cuda pod prints the node it runs on (`a100-1`, `NVIDIA_VISIBLE_DEVICES=void`), then `nvidia-smi -L` lists two A100s "via lupine 10.178.0.50" (a100-2). Measured: 414 s for the whole run with images cached, most of it vLLM loading the two models; start it with `--keep` before the pitch and walk through the output. HAMi keeps released MIG instances for reuse, so to show them being created live, clear them on a100-1 first (`sudo nvidia-smi mig -dci && sudo nvidia-smi mig -dgi`, then restart the a100-1 `hami-device-plugin` pod).
+The remote-cuda pod prints the node it runs on (`a100-1`, `NVIDIA_VISIBLE_DEVICES=void`), then `nvidia-smi -L` lists two A100s "via lupine 10.178.0.50" (a100-2). Measured: 414 s for the whole run with images cached, most of it vLLM loading the two models; the cold start fits a 20 minute slot, so it can run live; `--keep` leaves it up for questions. HAMi keeps released MIG instances for reuse, so to show them being created live, clear them on a100-1 first (`sudo nvidia-smi mig -dci && sudo nvidia-smi mig -dgi`, then restart the a100-1 `hami-device-plugin` pod).
 
 ## vllm-mig
 
