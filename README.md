@@ -26,6 +26,20 @@ uv run hamidemo run vllm-amd-share                  # amd environment
 uv run hamidemo utilization-chart                   # current allocation on any HAMi cluster
 ```
 
+### Debug a remote cluster locally
+
+```bash
+uv run hamidemo env connect a100     # pull kubeconfig + SOCKS proxy in the background (127.0.0.1:6443)
+uv run hamidemo env connect amd      # same for amd (127.0.0.1:6444); both can run at once
+export KUBECONFIG=environments/amd/kubeconfig
+kubectl get pods -A                  # helm and k9s work the same way
+
+uv run hamidemo env kubeconfig amd --out ~/.kube/hamidemo-amd   # only the kubeconfig (context hamidemo-amd)
+uv run hamidemo env proxy amd                                   # proxy in the foreground, Ctrl-C to stop
+```
+
+The kubeconfig keeps the cluster's own server address and certificate and sets `proxy-url: socks5://127.0.0.1:<port>`; the proxy is `ssh -D` to the environment's control plane.
+
 No GPU: `uv run hamidemo env setup mock` creates a local kind cluster with two fake A100-40GB.
 
 ## Environments

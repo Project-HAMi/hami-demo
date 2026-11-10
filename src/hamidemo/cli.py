@@ -1,6 +1,8 @@
 """hamidemo: deploy HAMi demo environments, run demos, draw GPU allocation."""
 
+import os
 from pathlib import Path
+from typing import Annotated
 
 import typer
 
@@ -20,8 +22,23 @@ def env_list() -> None:
 
 @env.command("connect")
 def env_connect(name: str) -> None:
-    """Copy the kubeconfig over SSH and tunnel the API server to localhost."""
+    """Pull the kubeconfig and start the SOCKS proxy in the background."""
     typer.echo(f"export KUBECONFIG={envs.connect(name)}")
+
+
+@env.command("kubeconfig")
+def env_kubeconfig(name: str, out: Annotated[Path | None, typer.Option(help="Write here instead of environments/<name>/kubeconfig")] = None) -> None:
+    """Only pull the kubeconfig (context hamidemo-<name>); run `env proxy` next to it."""
+    path = envs.kubeconfig(name, out)
+    typer.echo(f"export KUBECONFIG={path}\n# needs the proxy: {' '.join(envs.proxy_args(name))}")
+
+
+@env.command("proxy")
+def env_proxy(name: str) -> None:
+    """SOCKS proxy to the control plane in the foreground (Ctrl-C to stop). kubectl, helm and k9s use it via proxy-url."""
+    args = envs.proxy_args(name)
+    typer.echo(" ".join(args))
+    os.execvp(args[0], args)
 
 
 @env.command("setup")

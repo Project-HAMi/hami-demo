@@ -70,23 +70,33 @@ def setup(name: str, remove_conflicts: bool) -> None:
     patch_node(name, spec)
 
 
-def connect(name: str) -> Path:
-    """Copy the kubeconfig over SSH and tunnel the API server to localhost."""
+def kubeconfig(name: str, out: Path | None = None) -> Path:
+    """Copy the kubeconfig over SSH. API traffic goes through a SOCKS proxy on the control plane
+    (`proxy-url`), so the server address and certificate stay as the cluster issued them."""
     spec = load(name)
-    cp = spec["control_plane"]
-    raw = ssh(spec, cp, cmd=f"kind get kubeconfig --name {spec['kind']['name']}" if "kind" in spec else "kubectl config view --raw --minify")
+    raw = ssh(spec, spec["control_plane"], cmd=f"kind get kubeconfig --name {spec['kind']['name']}" if "kind" in spec else "kubectl config view --raw --minify")
     cfg = yaml.safe_load(raw)
-    cluster = cfg["clusters"][0]["cluster"]
-    remote = cluster["server"].split("//")[1]
-    if remote.startswith(("0.0.0.0", "127.0.0.1")):
-        remote = remote.replace("0.0.0.0", "127.0.0.1")
-    port = spec.get("local_api_port", FORWARD_PORT)
-    cluster["server"] = f"https://127.0.0.1:{port}"
-    cluster["tls-server-name"] = "kubernetes"
-    out = ROOT / "environments" / name / "kubeconfig"
+    ctx = f"hamidemo-{name}"
+    cfg["clusters"][0]["cluster"]["proxy-url"] = f"socks5://127.0.0.1:{spec.get('local_api_port', FORWARD_PORT)}"
+    cfg["clusters"][0]["name"] = cfg["contexts"][0]["context"]["cluster"] = ctx
+    cfg["contexts"][0]["name"] = cfg["current-context"] = ctx
+    out = out or ROOT / "environments" / name / "kubeconfig"
     out.write_text(yaml.safe_dump(cfg))
     out.chmod(0o600)
-    forward = f"{port}:{remote}"
-    subprocess.run(["pkill", "-f", f"-L {port}:"], check=False)
-    ssh(spec, cp, "-fNT", "-o", "ExitOnForwardFailure=yes", "-L", forward)
+    return out
+
+
+def proxy_args(name: str) -> list[str]:
+    spec = load(name)
+    port = spec.get("local_api_port", FORWARD_PORT)
+    key = os.path.expanduser(spec.get("ssh_key", "~/.ssh/id_kubecon"))
+    return ["ssh", "-i", key, "-N", "-o", "ExitOnForwardFailure=yes", "-o", "ServerAliveInterval=30", "-D", f"127.0.0.1:{port}", spec["hosts"][spec["control_plane"]]]
+
+
+def connect(name: str) -> Path:
+    """Kubeconfig plus the SOCKS proxy in the background."""
+    out = kubeconfig(name)
+    args = proxy_args(name)
+    subprocess.run(["pkill", "-f", " ".join(args[-3:])], check=False)
+    sh(*args[:-1], "-f", args[-1])
     return out
