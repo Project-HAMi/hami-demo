@@ -1,0 +1,37 @@
+# CUDA job on CLIENT_NODE; the kernels run on the Lupine server's two A100s.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: remote-cuda
+spec:
+  restartPolicy: Never
+  nodeSelector:
+    kubernetes.io/hostname: ${CLIENT_NODE}
+  containers:
+    - name: cuda
+      image: nvidia/cuda:13.0.2-devel-ubuntu24.04
+      command: [bash, -c]
+      args:
+        - |
+          cat > /tmp/add.cu <<'EOF'
+          #include <cstdio>
+          __global__ void add(int *r) { *r = 35 + 7; }
+          int main() {
+            int n = 0; cudaGetDeviceCount(&n);
+            for (int d = 0; d < n; d++) {
+              cudaSetDevice(d);
+              cudaDeviceProp p; cudaGetDeviceProperties(&p, d);
+              size_t f, t; cudaMemGetInfo(&f, &t);
+              int *g, h = 0; cudaMalloc(&g, sizeof(int)); add<<<1, 1>>>(g);
+              cudaMemcpy(&h, g, sizeof(int), cudaMemcpyDeviceToHost);
+              printf("device %d %s total=%zu MiB 35+7=%d\n", d, p.name, t >> 20, h);
+              if (h != 42) return 1;
+            }
+            return n == 0;
+          }
+          EOF
+          nvcc -arch=sm_80 -o /tmp/add /tmp/add.cu && /tmp/add && nvidia-smi
+      resources:
+        limits:
+          nvidia.com/remote-gpu: 2
+          nvidia.com/remote-gpu-memory: 3000

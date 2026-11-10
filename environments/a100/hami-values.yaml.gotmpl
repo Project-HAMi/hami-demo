@@ -1,0 +1,17 @@
+devices:
+  nvidia:
+    # containerd defaults to runc on these nodes; the cluster already has an "nvidia" RuntimeClass.
+    runtimeClassName: nvidia
+  remotegpu:
+    enabled: true
+devicePlugin:
+  nvidiaNodeSelector:
+    gpu: "on"
+  nodeConfiguration:
+    config: |
+      {
+        "nodeconfig": [
+          {"name": "{{ requiredEnv "MIG_NODE" }}", "operatingmode": "mig"},
+          {"name": "{{ requiredEnv "REMOTE_SERVER_NODE" }}", "operatingmode": "remote"}
+        ]
+      }

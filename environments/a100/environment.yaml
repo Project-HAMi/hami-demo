@@ -1,0 +1,15 @@
+title: A100 bare metal, 2 nodes x 2 A100-SXM4-40GB, existing Kubernetes 1.36
+ssh_key: ~/.ssh/id_kubecon
+control_plane: poff1
+hosts:
+  poff1: poff@34.64.252.7   # a100-1
+  poff2: poff@34.64.60.215  # a100-2
+env:
+  MIG_NODE: a100-1
+  REMOTE_SERVER_NODE: a100-2
+  HAMI_VERSION: 2.11.0
+conflicts:
+  kube-system/volcano-device-plugin: volcano-vgpu-device-plugin
+prepare:
+  # Flexible MIG needs MIG mode on; a pending change may need a reboot of the node.
+  poff1: "sudo nvidia-smi -mig 1 >/dev/null; nvidia-smi --query-gpu=index,mig.mode.current,mig.mode.pending --format=csv"
