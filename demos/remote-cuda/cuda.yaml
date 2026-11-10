@@ -34,7 +34,7 @@ spec:
           }
           EOF
           echo "pod runs on node: $NODE_NAME (no local GPU: NVIDIA_VISIBLE_DEVICES=$NVIDIA_VISIBLE_DEVICES)"
-          nvcc -arch=sm_80 -o /tmp/add /tmp/add.cu && /tmp/add && nvidia-smi -L
+          nvcc -arch=sm_80 -o /tmp/add /tmp/add.cu && /tmp/add && nvidia-smi
       resources:
         limits:
           nvidia.com/remote-gpu: 2

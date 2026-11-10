@@ -13,11 +13,11 @@ phases:
     manifest: vllm-mig-small.yaml
     deployments: [vllm-mig-small]
     selector: app=vllm-mig,size=small
-    exec: [nvidia-smi -L]
+    exec: [nvidia-smi]
     check: [{name: mig-2g.10gb, url: "http://vllm-mig-small:8000", model: Qwen/Qwen3-1.7B}]
   - name: 20 GB server binpacked next to it on a 3g.20gb slice
     manifest: vllm-mig-large.yaml
     deployments: [vllm-mig-large]
     selector: app=vllm-mig
-    exec: [nvidia-smi -L]
+    exec: [nvidia-smi]
     check: [{name: mig-3g.20gb, url: "http://vllm-mig-large:8000", model: Qwen/Qwen3-4B}]

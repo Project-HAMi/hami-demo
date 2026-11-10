@@ -52,7 +52,8 @@ class Run:
         block = f"\n==> {title}\n{text.rstrip()}\n" if text else f"\n==> {title}\n"
         console.print(f"\n==> {title}", style="bold magenta")
         if text:
-            console.print(text.rstrip(), markup=False)
+            # crop, not wrap: nvidia-smi tables are 89 columns and must keep their borders
+            console.print(text.rstrip(), markup=False, overflow="ignore", crop=False, no_wrap=True)
         with open(self.out / "run.log", "a") as f:
             f.write(block)
 

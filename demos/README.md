@@ -47,11 +47,11 @@ The 20 minute walkthrough: `vllm-mig` and the CUDA part of `remote-cuda` in one 
  +-----------------------------------------+         +---------------------------+
 ```
 
-The remote-cuda pod prints the node it runs on (`a100-1`, `NVIDIA_VISIBLE_DEVICES=void`), then `nvidia-smi -L` lists two A100s "via lupine 10.178.0.50" (a100-2). Measured: 414 s for the whole run with images cached, most of it vLLM loading the two models; the cold start fits a 20 minute slot, so it can run live; `--keep` leaves it up for questions. HAMi keeps released MIG instances for reuse, so to show them being created live, clear them on a100-1 first (`sudo nvidia-smi mig -dci && sudo nvidia-smi mig -dgi`, then restart the a100-1 `hami-device-plugin` pod).
+The remote-cuda pod prints the node it runs on (`a100-1`, `NVIDIA_VISIBLE_DEVICES=void`), then `nvidia-smi` lists two A100s "via lupine 10.178.0.50" (a100-2). Measured: 414 s for the whole run with images cached, most of it vLLM loading the two models; the cold start fits a 20 minute slot, so it can run live; `--keep` leaves it up for questions. HAMi keeps released MIG instances for reuse, so to show them being created live, clear them on a100-1 first (`sudo nvidia-smi mig -dci && sudo nvidia-smi mig -dgi`, then restart the a100-1 `hami-device-plugin` pod).
 
 ## vllm-mig
 
-vLLM Qwen3-1.7B with `nvidia.com/gpumem: 9000`, then Qwen3-4B with `20000`, both annotated `nvidia.com/vgpu-mode: mig` and binpack, pinned to MIG_NODE. HAMi picks the smallest allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB; 2g.10gb registers as 9984 MiB, so a 10000 request would get 3g.20gb) and creates it when the pod is scheduled. The small server is up before the large one is applied, and binpack puts both on the same A100. The run logs the `hami.io/vgpu-mig-allocations` reservation, `nvidia-smi -L` per pod and a completion per server. A released instance is kept and reused by the next pod that fits it.
+vLLM Qwen3-1.7B with `nvidia.com/gpumem: 9000`, then Qwen3-4B with `20000`, both annotated `nvidia.com/vgpu-mode: mig` and binpack, pinned to MIG_NODE. HAMi picks the smallest allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB; 2g.10gb registers as 9984 MiB, so a 10000 request would get 3g.20gb) and creates it when the pod is scheduled. The small server is up before the large one is applied, and binpack puts both on the same A100. The run logs the `hami.io/vgpu-mig-allocations` reservation, the full `nvidia-smi` table per pod (the MIG devices section shows the slice and its memory) and a completion per server. A released instance is kept and reused by the next pod that fits it.
 
 ```text
  a100-1, one A100-SXM4-40GB in MIG mode (7 compute slices, 40 GB)
