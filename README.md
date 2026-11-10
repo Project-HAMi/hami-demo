@@ -29,7 +29,7 @@ uv run hamidemo utilization-chart                   # current allocation on any 
 
 ### Presenting
 
-Two terminals, same `KUBECONFIG`:
+Two terminals; both pick the demo's environment from `config.toml` themselves (kubeconfig pulled and proxy started if needed), whatever `KUBECONFIG` the shell has. `--kubeconfig PATH` overrides that.
 
 ```bash
 uv run hamidemo logs vllm-mig    # terminal 2: start first; follows every workload of the demo

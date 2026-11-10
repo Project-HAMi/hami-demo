@@ -116,10 +116,32 @@ def proxy_args(name: str) -> list[str]:
     return ["ssh", "-i", key, "-N", "-o", "ExitOnForwardFailure=yes", "-o", "ServerAliveInterval=30", "-D", f"127.0.0.1:{port}", spec["hosts"][spec["control_plane"]]]
 
 
+def proxy_pattern(name: str) -> str:
+    """Matches only the proxy's own ssh command line (anchored, so shells mentioning it don't match)."""
+    return rf"^ssh .*-D 127\.0\.0\.1:{load(name).get('local_api_port', FORWARD_PORT)} "
+
+
+def proxy_running(name: str) -> bool:
+    return subprocess.run(["pgrep", "-f", "--", proxy_pattern(name)], check=False, capture_output=True).returncode == 0
+
+
 def connect(name: str) -> Path:
-    """Kubeconfig plus the SOCKS proxy in the background."""
+    """Kubeconfig plus the SOCKS proxy in the background (restarted if already running)."""
     out = kubeconfig(name)
     args = proxy_args(name)
-    subprocess.run(["pkill", "-f", " ".join(args[-3:])], check=False)
+    subprocess.run(["pkill", "-f", "--", proxy_pattern(name)], check=False)
     sh(*args[:-1], "-f", args[-1])
     return out
+
+
+def use(name: str) -> Path:
+    """Point this process at environment <name>: its kubeconfig, with the proxy started if it is down.
+    Remote environments only; mock keeps the caller's KUBECONFIG (local kind)."""
+    spec = load(name)
+    if "hosts" not in spec:
+        return Path(os.environ.get("KUBECONFIG", "~/.kube/config"))
+    path = ROOT / "environments" / name / "kubeconfig"
+    if not (path.exists() and proxy_running(name)):
+        connect(name)
+    os.environ["KUBECONFIG"] = str(path)
+    return path

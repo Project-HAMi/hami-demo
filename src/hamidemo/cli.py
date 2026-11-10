@@ -55,15 +55,29 @@ def list_demos() -> None:
         typer.echo(f"{name} [{spec['environment']}]: {spec['title']}")
 
 
+KubeconfigOpt = Annotated[Path | None, typer.Option(help="Use this kubeconfig instead of the demo environment's (proxy auto-started)")]
+
+
+def target(name: str, kubeconfig: Path | None) -> None:
+    """Every demo names its environment; talk to that cluster, not whatever KUBECONFIG the shell has."""
+    if kubeconfig:
+        os.environ["KUBECONFIG"] = str(kubeconfig.expanduser())
+    else:
+        path = envs.use(demo.load(name)[1]["environment"])
+        typer.secho(f"# {name}: KUBECONFIG={path}", fg="bright_black", err=True)
+
+
 @app.command()
-def run(name: str, keep: bool = typer.Option(False, help="Leave the workloads running")) -> None:
+def run(name: str, keep: bool = typer.Option(False, help="Leave the workloads running"), kubeconfig: KubeconfigOpt = None) -> None:
     """Deploy a demo, check it, benchmark it, draw the allocation and tear it down."""
+    target(name, kubeconfig)
     typer.echo(f"Results in {demo.Run(name)(keep)}")
 
 
 @app.command()
-def logs(name: str, tail: Annotated[int, typer.Option(help="Lines of history per container when it attaches")] = 20) -> None:
+def logs(name: str, tail: Annotated[int, typer.Option(help="Lines of history per container when it attaches")] = 20, kubeconfig: KubeconfigOpt = None) -> None:
     """Follow the logs of every workload the demo starts (run it in a second terminal next to `run`)."""
+    target(name, kubeconfig)
     follow_logs.logs(name, tail)
 
 
