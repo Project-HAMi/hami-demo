@@ -1,0 +1,41 @@
+# Phase 2 of vllm-mig: the 20 GB server binpacks onto the same A100 as the 10 GB one.
+# gpumem 20000 -> 3g.20gb, carved from the slices the 2g.10gb left free.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-mig-large
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: vllm-mig, size: large}
+  template:
+    metadata:
+      labels: {app: vllm-mig, size: large}
+      annotations:
+        nvidia.com/vgpu-mode: mig
+        hami.io/node-scheduler-policy: binpack
+        hami.io/gpu-scheduler-policy: binpack
+    spec:
+      nodeSelector: {kubernetes.io/hostname: "${MIG_NODE}"}
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.25.1-ubuntu2404
+          command: [vllm, serve, Qwen/Qwen3-4B]
+          args: [--host=0.0.0.0, --port=8000, --max-model-len=4096, --gpu-memory-utilization=0.85]
+          ports: [{name: http, containerPort: 8000}]
+          startupProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, failureThreshold: 90}
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              nvidia.com/gpumem: 20000
+          volumeMounts: [{name: shm, mountPath: /dev/shm}]
+      volumes: [{name: shm, emptyDir: {medium: Memory, sizeLimit: 2Gi}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: vllm-mig-large}
+spec:
+  selector: {app: vllm-mig, size: large}
+  ports: [{port: 8000, targetPort: http}]

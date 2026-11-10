@@ -44,6 +44,15 @@ def kjson(*args: str) -> dict:
     return json.loads(kubectl("get", *args, "-o", "json", quiet=True))
 
 
+def short(v):
+    """Inline scripts (bash -c heredocs) are noise on stage; keep the first line."""
+    if isinstance(v, list):
+        return [short(x) for x in v]
+    if isinstance(v, str) and "\n" in v:
+        return f"{v.splitlines()[0]} ... ({v.count(chr(10))} lines)"
+    return v
+
+
 def relevant(doc: dict) -> dict:
     """kind/name plus the scheduling-relevant parts: pod annotations, scheduler, containers' image/command/resources."""
     out = {"kind": doc["kind"], "name": doc["metadata"]["name"]}
@@ -53,7 +62,7 @@ def relevant(doc: dict) -> dict:
     spec = tmpl.get("spec", {})
     out |= {k: spec[k] for k in POD_FIELDS if k in spec}
     if cs := spec.get("containers"):
-        out["containers"] = [{k: c[k] for k in CONTAINER_FIELDS if k in c} for c in cs]
+        out["containers"] = [{k: short(c[k]) for k in CONTAINER_FIELDS if k in c} for c in cs]
     return out
 
 

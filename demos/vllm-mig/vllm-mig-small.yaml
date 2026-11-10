@@ -1,0 +1,42 @@
+# Phase 1 of vllm-mig: the 10 GB server lands first on the MIG node.
+# gpumem 9000 -> 2g.10gb (HAMi registers 2g.10gb as 9984 MiB, so 10000 would not fit).
+# binpack keeps it, and the large one after it, on the same node and the same A100.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: vllm-mig-small
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: vllm-mig, size: small}
+  template:
+    metadata:
+      labels: {app: vllm-mig, size: small}
+      annotations:
+        nvidia.com/vgpu-mode: mig
+        hami.io/node-scheduler-policy: binpack
+        hami.io/gpu-scheduler-policy: binpack
+    spec:
+      nodeSelector: {kubernetes.io/hostname: "${MIG_NODE}"}
+      containers:
+        - name: vllm
+          image: vllm/vllm-openai:v0.25.1-ubuntu2404
+          command: [vllm, serve, Qwen/Qwen3-1.7B]
+          args: [--host=0.0.0.0, --port=8000, --max-model-len=4096, --gpu-memory-utilization=0.85]
+          ports: [{name: http, containerPort: 8000}]
+          startupProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10, failureThreshold: 90}
+          readinessProbe: {httpGet: {path: /health, port: http}, periodSeconds: 10}
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+              nvidia.com/gpumem: 9000
+          volumeMounts: [{name: shm, mountPath: /dev/shm}]
+      volumes: [{name: shm, emptyDir: {medium: Memory, sizeLimit: 2Gi}}]
+---
+apiVersion: v1
+kind: Service
+metadata: {name: vllm-mig-small}
+spec:
+  selector: {app: vllm-mig, size: small}
+  ports: [{port: 8000, targetPort: http}]

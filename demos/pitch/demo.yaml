@@ -1,0 +1,25 @@
+title: HAMi in 3 minutes, Flexible MIG and remote CUDA on one cluster
+environment: a100
+description: >
+  MIG_NODE: two vLLM servers binpacked onto one A100, the 10 GB one first (2g.10gb), then the 20 GB one (3g.20gb).
+  In parallel, a CUDA pod on CLIENT_NODE with no local GPU runs its kernels on REMOTE_SERVER_NODE's GPUs.
+values:
+  MIG_NODE: a100-1     # defaults; config.toml [environments.a100.nodes] or env vars override
+  CLIENT_NODE: a100-1
+teardown: end
+phases:
+  - name: 10 GB server on a 2g.10gb slice
+    manifest: ../vllm-mig/vllm-mig-small.yaml
+    deployments: [vllm-mig-small]
+    selector: app=vllm-mig,size=small
+    exec: [nvidia-smi -L]
+    check: [{name: mig-2g.10gb, url: "http://vllm-mig-small:8000", model: Qwen/Qwen3-1.7B}]
+  - name: 20 GB server binpacked next to it on a 3g.20gb slice
+    manifest: ../vllm-mig/vllm-mig-large.yaml
+    deployments: [vllm-mig-large]
+    selector: app=vllm-mig
+    exec: [nvidia-smi -L]
+    check: [{name: mig-3g.20gb, url: "http://vllm-mig-large:8000", model: Qwen/Qwen3-4B}]
+  - name: CUDA on CLIENT_NODE, GPUs on the remote server
+    manifest: ../remote-cuda/cuda.yaml
+    pod: remote-cuda

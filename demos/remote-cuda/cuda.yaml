@@ -11,6 +11,8 @@ spec:
   containers:
     - name: cuda
       image: nvidia/cuda:13.0.2-devel-ubuntu24.04
+      env:
+        - {name: NODE_NAME, valueFrom: {fieldRef: {fieldPath: spec.nodeName}}}
       command: [bash, -c]
       args:
         - |
@@ -31,7 +33,8 @@ spec:
             return n == 0;
           }
           EOF
-          nvcc -arch=sm_80 -o /tmp/add /tmp/add.cu && /tmp/add && nvidia-smi
+          echo "pod runs on node: $NODE_NAME (no local GPU: NVIDIA_VISIBLE_DEVICES=$NVIDIA_VISIBLE_DEVICES)"
+          nvcc -arch=sm_80 -o /tmp/add /tmp/add.cu && /tmp/add && nvidia-smi -L
       resources:
         limits:
           nvidia.com/remote-gpu: 2

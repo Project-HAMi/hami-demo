@@ -71,7 +71,7 @@ def target(name: str, kubeconfig: Path | None) -> None:
 def run(
     name: str,
     keep: bool = typer.Option(False, help="Leave the workloads running"),
-    bench: bool = typer.Option(True, help="Run inference-perf; --no-bench just deploys, checks one completion and shows the allocation"),
+    bench: bool = typer.Option(False, help="Also run inference-perf (off by default: deploy, check one completion, show the allocation)"),
     live: bool = typer.Option(True, help="Stream pod events and logs while waiting; --no-live when `hamidemo logs` runs alongside"),
     kubeconfig: KubeconfigOpt = None,
 ) -> None:

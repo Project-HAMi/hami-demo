@@ -33,22 +33,37 @@ uv run hamidemo utilization-chart                      # current allocation, any
 - **amd**: kind on the MI300X host with `/dev/kfd` and `/dev/dri` mounted, HAMi plus amd-device-plugin 0.0.4. Run `hamidemo env setup amd` on that host, or `env connect amd` from your machine afterwards.
 - **a100**: existing Kubernetes 1.36 cluster, `a100-1` (poff1) and `a100-2` (poff2), 2 x A100-SXM4-40GB each. `a100-1` runs in Flexible MIG mode, `a100-2` as the Lupine remote GPU server.
 
+## pitch
+
+The 3 minute version: `vllm-mig` and the CUDA part of `remote-cuda` in one run, no benchmark.
+
+```text
+ a100-1 (MIG_NODE, CLIENT_NODE)                      a100-2 (REMOTE_SERVER_NODE, no MIG)
+ +-----------------------------------------+         +---------------------------+
+ | GPU 0: 2g.10gb vllm-mig-small   (1st)   |         | GPU 0, GPU 1 (whole)      |
+ |        3g.20gb vllm-mig-large   (2nd)   |         | served by Lupine          |
+ | GPU 1: free                             |         |                           |
+ | remote-cuda pod, no local GPU  ---------+-------> | runs its CUDA kernels     |
+ +-----------------------------------------+         +---------------------------+
+```
+
+The remote-cuda pod prints the node it runs on (`a100-1`, `NVIDIA_VISIBLE_DEVICES=void`), then `nvidia-smi -L` lists two A100s "via lupine 10.178.0.50" (a100-2). Measured: 414 s for the whole run with images cached, most of it vLLM loading the two models; start it with `--keep` before the pitch and walk through the output. HAMi keeps released MIG instances for reuse, so to show them being created live, clear them on a100-1 first (`sudo nvidia-smi mig -dci && sudo nvidia-smi mig -dgi`, then restart the a100-1 `hami-device-plugin` pod).
+
 ## vllm-mig
 
-vLLM Qwen3-1.7B with `nvidia.com/gpumem: 9000` and Qwen3-4B with `20000`, both annotated `nvidia.com/vgpu-mode: mig`. HAMi picks the smallest allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB) and creates it when the pod starts. The run logs the `hami.io/vgpu-mig-allocations` reservation, `nvidia-smi -L` per pod, a completion per server and an inference-perf ramp (1, 2, 4 QPS) against each server in turn, then deletes the pods so HAMi reclaims the instances.
+vLLM Qwen3-1.7B with `nvidia.com/gpumem: 9000`, then Qwen3-4B with `20000`, both annotated `nvidia.com/vgpu-mode: mig` and binpack, pinned to MIG_NODE. HAMi picks the smallest allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB; 2g.10gb registers as 9984 MiB, so a 10000 request would get 3g.20gb) and creates it when the pod is scheduled. The small server is up before the large one is applied, and binpack puts both on the same A100. The run logs the `hami.io/vgpu-mig-allocations` reservation, `nvidia-smi -L` per pod and a completion per server. A released instance is kept and reused by the next pod that fits it.
 
 ```text
  a100-1, one A100-SXM4-40GB in MIG mode (7 compute slices, 40 GB)
 
- pod request                   HAMi creates      GPU layout
+ pod request (in order)        HAMi creates      GPU layout
  +-----------------------+
- | vllm-mig-small        | --> 2g.10gb -----+
+ | 1. vllm-mig-small     | --> 2g.10gb -----+
  | gpumem 9000, mig      |                  |    +---------+-----------+---------+
  +-----------------------+                  +--> | 2g.10gb |  3g.20gb  | 2 free  |
- | vllm-mig-large        | --> 3g.20gb -----+    +---------+-----------+---------+
+ | 2. vllm-mig-large     | --> 3g.20gb -----+    +---------+-----------+---------+
  | gpumem 20000, mig     |
  +-----------------------+
- pod deleted --> HAMi destroys the instance --> slices free again
 ```
 
 ## vllm-amd-share

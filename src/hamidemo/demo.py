@@ -68,7 +68,8 @@ class Run:
 
     def completion(self, url: str, model: str) -> str:
         body = json.dumps({"model": model, "prompt": "The capital of France is", "max_tokens": 32, "temperature": 0})
-        return self.k("run", "completion-check", "--rm", "-i", "--restart=Never", "--image=curlimages/curl:8.11.1", "--quiet", "--",
+        # Unique name: a leftover pod from an interrupted run must not block the next one.
+        return self.k("run", f"completion-check-{os.getpid()}-{self.charts}", "--rm", "-i", "--restart=Never", "--image=curlimages/curl:8.11.1", "--quiet", "--",
                       "-fsS", f"{url}/v1/completions", "-H", "Content-Type: application/json", "-d", body)
 
     def bench(self, b: dict, title: str) -> None:
@@ -115,15 +116,18 @@ class Run:
                 for cmd in p.get("exec", []):
                     self.log(f"{pod_name}: {cmd}", self.k("exec", pod_name, "--", *cmd.split(), check=False))
         self.snapshot(p["name"])
-        for t in p.get("bench", {}).get("targets", []):
+        for t in p.get("check", []) or p.get("bench", {}).get("targets", []):
             self.log(f"Completion via {t['name']}", self.completion(t["url"], t["model"]))
         if (b := p.get("bench")) and self.benchmark:
             self.bench(b, p["name"])
-        if not keep:
-            if manifest:
-                apply(manifest, self.ns, delete=True)
-            for d in p.get("scale", {}):
-                self.k("scale", f"deploy/{d}", "--replicas=0")
+        if not keep and self.spec.get("teardown") != "end":
+            self.teardown(p)
+
+    def teardown(self, p: dict) -> None:
+        if "manifest" in p:
+            apply(render(self.dir / p["manifest"], self.values), self.ns, delete=True)
+        for d in p.get("scale", {}):
+            self.k("scale", f"deploy/{d}", "--replicas=0")
 
     def __call__(self, keep: bool) -> Path:
         self.log(self.spec["title"], self.spec.get("description", ""))
@@ -132,5 +136,8 @@ class Run:
         for p in self.spec["phases"]:
             self.phase(p, keep)
         if not keep:
+            if self.spec.get("teardown") == "end":
+                for p in reversed(self.spec["phases"]):
+                    self.teardown(p)
             self.snapshot("After")
         return self.out

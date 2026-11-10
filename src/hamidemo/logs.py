@@ -35,9 +35,11 @@ class Stream:
     def follow(self, selector: str, colour: str) -> None:
         cmd = ["kubectl", "-n", self.ns, "logs", "-f", "-l", selector, "--all-containers", "--prefix", f"--tail={self.tail}", "--max-log-requests=20", "--ignore-errors"]
         show_cmd(cmd)
+        seen: set[str] = set()  # reconnects replay --tail lines; a finished pod would print its log again
         for line in self.lines(cmd):
-            if line.startswith("No resources found") or "is waiting to start" in line:
-                continue  # not started yet; the events stream shows why
+            if line.startswith("No resources found") or "is waiting to start" in line or line in seen:
+                continue  # not started yet (the events stream shows why), or a replayed line
+            seen.add(line)
             # kubectl --prefix gives "[pod/<name>/<container>] "; keep just the pod name.
             m = re.match(r"\[pod/([^/\]]+)/[^\]]*\] ?", line)
             who, line = (m[1], line[m.end():]) if m else (selector, line)

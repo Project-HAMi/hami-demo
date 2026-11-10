@@ -1,16 +1,23 @@
-title: vLLM on Flexible MIG, slices created per pod and reclaimed after
+title: vLLM on Flexible MIG, binpacked onto one A100 of the MIG node
 environment: a100
 description: >
-  Two vLLM servers ask for 9000 and 20000 MiB with nvidia.com/vgpu-mode=mig. HAMi creates the smallest
-  allowlisted profile that fits (2g.10gb and 3g.20gb on an A100-40GB) and removes it when the pod ends.
+  Two vLLM servers with nvidia.com/vgpu-mode=mig and binpack, pinned to the MIG node. The 10 GB one goes
+  first (gpumem 9000 -> 2g.10gb), then the 20 GB one (gpumem 20000 -> 3g.20gb). HAMi creates each slice
+  when the pod is scheduled and binpack puts both on the same A100.
+values:
+  MIG_NODE: a100-1  # default; config.toml [environments.a100.nodes] MIG_NODE or $MIG_NODE override
+# Workloads stay up across phases and are removed at the end (or kept with --keep).
+teardown: end
 phases:
-  - name: vLLM on MIG
-    manifest: vllm-mig.yaml
-    deployments: [vllm-mig-small, vllm-mig-large]
+  - name: 10 GB server on a 2g.10gb slice
+    manifest: vllm-mig-small.yaml
+    deployments: [vllm-mig-small]
+    selector: app=vllm-mig,size=small
+    exec: [nvidia-smi -L]
+    check: [{name: mig-2g.10gb, url: "http://vllm-mig-small:8000", model: Qwen/Qwen3-1.7B}]
+  - name: 20 GB server binpacked next to it on a 3g.20gb slice
+    manifest: vllm-mig-large.yaml
+    deployments: [vllm-mig-large]
     selector: app=vllm-mig
     exec: [nvidia-smi -L]
-    bench:
-      config: ../bench/random-ramp.yaml
-      targets:
-        - {name: mig-2g.10gb, url: "http://vllm-mig-small:8000", model: Qwen/Qwen3-1.7B}
-        - {name: mig-3g.20gb, url: "http://vllm-mig-large:8000", model: Qwen/Qwen3-4B}
+    check: [{name: mig-3g.20gb, url: "http://vllm-mig-large:8000", model: Qwen/Qwen3-4B}]

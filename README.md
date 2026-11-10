@@ -2,12 +2,13 @@
 
 Reproducible HAMi demos on three environments, driven by one Python CLI, `hamidemo`:
 
-- **vllm-mig**: two vLLM servers on dynamically created MIG instances (HAMi Flexible MIG)
+- **pitch**: the 3 minute version, Flexible MIG binpack on a100-1 plus a remote CUDA pod on a100-1 using a100-2's GPUs
+- **vllm-mig**: two vLLM servers binpacked onto dynamically created MIG instances of one A100 (HAMi Flexible MIG)
 - **remote-cuda**: CUDA and vLLM on GPUs from another node over HAMi Remote GPU (Lupine)
 - **epp-burst**: llm-d EPP cache-aware routing against random routing under a shared-prefix burst, measured as TTFT
 - **vllm-amd-share**: two standard vLLM ROCm servers sharing one AMD Instinct MI300X through HAMi slices
 
-Every demo uses the same benchmark path ([inference-perf](https://github.com/kubernetes-sigs/inference-perf)) and writes its raw reports, a TTFT / TPOT / latency chart per QPS stage and per-GPU allocation charts to `output/<demo>/<timestamp>/`.
+`run` deploys, checks one completion per server and draws per-GPU allocation charts. `--bench` adds the [inference-perf](https://github.com/kubernetes-sigs/inference-perf) ramp and a TTFT / TPOT / latency chart per QPS stage. Everything goes to `output/<demo>/<timestamp>/`.
 
 ## Quick start
 
@@ -20,10 +21,12 @@ uv run hamidemo env connect a100                    # kubeconfig + SOCKS proxy; 
 export KUBECONFIG=$PWD/environments/a100/kubeconfig
 uv run hamidemo env setup a100 --remove-conflicts   # once: installs HAMi 2.11.0, replaces the Volcano vGPU plugin
 uv run hamidemo list
+uv run hamidemo run pitch                           # 3 minute version: MIG binpack plus remote CUDA
 uv run hamidemo run vllm-mig
 uv run hamidemo run remote-cuda
 uv run hamidemo run epp-burst
 uv run hamidemo run vllm-amd-share                  # amd environment
+uv run hamidemo run vllm-mig --bench                # add the inference-perf ramp
 uv run hamidemo utilization-chart                   # current allocation on any HAMi cluster
 ```
 
